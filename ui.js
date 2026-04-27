@@ -504,16 +504,43 @@ window._lastExportBlobPromise = null;
 
 function shareImage() {
   if (!window._lastExportDataUrl) { showToast('No image to share. Export first.'); return; }
-  try {
-    Android.shareImage(window._lastExportDataUrl, window._lastExportName || 'GPA_Transcript.png');
-  } catch(e) { showToast('Share failed'); }
+
+  // Android WebView bridge
+  if (typeof Android !== 'undefined' && Android.shareImage) {
+    try { Android.shareImage(window._lastExportDataUrl, window._lastExportName || 'GPA_Transcript.png'); return; } catch(e) {}
+  }
+
+  // Web: convert dataURL → Blob → File, then use Web Share API (if supported)
+  fetch(window._lastExportDataUrl)
+    .then(r => r.blob())
+    .then(blob => {
+      const file = new File([blob], window._lastExportName || 'GPA_Transcript.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: 'GPA Transcript' }).catch(() => {});
+      } else {
+        // Fallback: just download it
+        downloadImg();
+      }
+    })
+    .catch(() => showToast('Share failed'));
 }
 
 function downloadImg() {
   if (!window._lastExportDataUrl) { showToast('No image to save'); return; }
-  try {
-    Android.saveImage(window._lastExportDataUrl, window._lastExportName || 'GPA_Transcript.png');
-  } catch(e) { showToast('Save failed'); }
+
+  // Android WebView bridge
+  if (typeof Android !== 'undefined' && Android.saveImage) {
+    try { Android.saveImage(window._lastExportDataUrl, window._lastExportName || 'GPA_Transcript.png'); return; } catch(e) {}
+  }
+
+  // Web: trigger a real <a download> click
+  const a = document.createElement('a');
+  a.href = window._lastExportDataUrl;
+  a.download = window._lastExportName || 'GPA_Transcript.png';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast('Saved ✓');
 }
 
 async function exportAsImage(){
