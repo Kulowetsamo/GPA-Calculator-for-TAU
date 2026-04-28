@@ -168,7 +168,7 @@ function makeCourseRow(name, credits, savedGrade, isElective) {
     plus.textContent = '+';
     minus.onclick = () => {
       let v = parseInt(val.textContent);
-      if (v > 1) {
+      if (v > 0) {
         val.textContent = v - 1;
         row.dataset.credits = v - 1;
         recalculate();
