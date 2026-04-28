@@ -1,4 +1,4 @@
-// ── GPA Calculator Application (ui.js) ─────────────────────────────────────
+// GPA Calculator (ui.js)
 // This file powers the front-end logic for the GPA calculator, including
 // profile management, semester course editing, GPA calculations, transcript
 // generation, image export, and swipe navigation.
@@ -6,7 +6,7 @@
 // Global state variables: activeProfileId, activeDept, activeKey, semData,
 // semHistory, whatIfMode, realSnapshotBySem, etc.
 
-// ── profile list management ──────────────────────────────────────────────
+// Profile list management
 // Filter for profile department: 'ALL', 'CNGB', 'IENG', or 'FE'
 let profileFilter = 'ALL';
 
@@ -58,7 +58,7 @@ function renderProfileList() {
   });
 }
 
-// ── semester UI (course list, saving, loading) ───────────────────────────────
+//Semester UI (Course List, Saving, Loading)
 /**
  * Saves the current course rows data (grades/credits) for the active semester.
  * In "what-if" mode, it restores from snapshot to avoid corrupting real data.
@@ -127,7 +127,7 @@ function loadCourses() {
   });
   recalculate();                       // Update GPA for this semester
   updateHistoryStrip();                // Refresh semester history chips
-  updateCumulative();                  // Recompute cumulative GPA
+  updateCumulative();                  // Recalculate cum. GPA
   if (whatIfMode) _onWhatIfSemSwitch();
   else {
     document.querySelector('#calcScreen .banner:not(.cum)')?.classList.remove('whatif-active');
@@ -139,7 +139,7 @@ function loadCourses() {
  * @param {string} name - Course name
  * @param {number} credits - Credit value (or default 3 for electives)
  * @param {string} savedGrade - Previously selected grade
- * @param {boolean} isElective - Whether this is an elective (has credit spinner)
+ * @param {boolean} isElective - Whether this is an elective (0 Credit course or not)
  * @returns {HTMLElement} The course row div
  */
 function makeCourseRow(name, credits, savedGrade, isElective) {
@@ -195,7 +195,7 @@ function makeCourseRow(name, credits, savedGrade, isElective) {
 
   const sel = document.createElement('select');
   if (isZero) {
-    // Zero-credit courses (e.g., seminar) have special grading: S, U, or SKIP
+    // Zero-credit courses' grades: S, U, or SKIP
     sel.appendChild(Object.assign(document.createElement('option'), { value: '', textContent: '—' }));
     [['S', 'Passed'], ['U', 'Not Passed'], ['SKIP', "Didn't Take"]].forEach(([v, t]) => {
       const opt = document.createElement('option');
@@ -263,7 +263,7 @@ function updateHistoryStrip() {
 }
 
 /**
- * Updates the cumulative GPA banner.
+ * Updates the cum. GPA banner.
  * If provided with a what-if GPA, displays it in purple and shows delta vs real.
  * @param {number|null} wiGpa - Optional what-if cumulative GPA
  */
@@ -290,7 +290,7 @@ function updateCumulative(wiGpa) {
   });
   const realGpa = cr > 0 ? pts / cr : 0;
 
-  // If a what-if cumulative GPA is provided, show it in purple instead
+  // If a what-if cum. GPA is provided, show it in purple instead
   const displayGpa = (wiGpa != null) ? wiGpa : realGpa;
   cumGpaEl.textContent = displayGpa.toFixed(2);
   cumSubsEl.textContent = keys.length + ' semester' + (keys.length > 1 ? 's' : '');
@@ -326,7 +326,7 @@ function updateCumulative(wiGpa) {
   }
 }
 
-// ── modals (new profile, delete, rename, reset) ────────────────────────────────────
+// Modals (new profile, delete, rename, reset)
 let _modalDept = 'CNGB';
 
 /**
@@ -465,7 +465,7 @@ function confirmRename() {
   renderProfileList();
 }
 
-// ── theme (light/dark mode) ─────────────────────────────────────────────────────
+// Theme ( Light / Dark Mode)
 /**
  * Toggles between light and dark theme.
  */
@@ -483,10 +483,10 @@ function loadTheme() {
   }
 }
 
-// ── transcript (full detailed view of all semesters) ────────────────────────────────
+// Transcript (Full detailed view of all Semesters combined)
 /**
  * Renders the entire academic transcript in the designated container.
- * Includes semester headers, courses with grades, cumulative GPA, and action buttons.
+ * Includes semester headers, courses with grades, cum. GPA, and action buttons.
  */
 function renderTranscript() {
   const wrap = document.getElementById('transcriptWrap');
@@ -658,7 +658,7 @@ function copyTranscript() {
   }
 }
 
-// ── image export & share (canvas generation for transcript) ─────────────────────
+// Image export & Share
 window._lastExportDataUrl = null;
 window._lastExportBlobPromise = null;
 
@@ -691,7 +691,7 @@ async function exportAsImage() {
   if (btn) { btn.textContent = 'Generating…'; btn.disabled = true; }
 
   try {
-    // ── Wait for fonts to be ready (critical on Android WebView) ──
+    // Wait for fonts to be ready
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
     // Force-load DM Mono if FontFace API is available
     if (document.fonts && document.fonts.load) {
@@ -856,7 +856,7 @@ function closeImgOverlay() {
   document.getElementById('imgOverlay').style.display = 'none';
 }
 
-// ── swipe navigation (touch gestures for changing semesters) ─────────────────────
+// Touch Gestures for switching between Semesters
 (function () {
   const SEM_FLAT = ["Year 1|Fall", "Year 1|Spring", "Year 2|Fall", "Year 2|Spring", "Year 3|Fall", "Year 3|Spring", "Year 4|Fall", "Year 4|Spring"];
   function currentFlatIdx() { return SEM_FLAT.indexOf(document.getElementById('yearSel').value + '|' + document.getElementById('semSel').value); }
