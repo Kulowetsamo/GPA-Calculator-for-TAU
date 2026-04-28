@@ -1,27 +1,25 @@
-// ── screen / history (navigation between tabs: Calc, Transcript, Profiles) ──────────────────────────────────────────
-let _currentScreen = 'calc'; // Tracks which screen is currently visible: 'calc', 'transcript', or 'profiles'
+// Screen / History (navigation between tabs: Calc, Transcript, Profiles)
+let _currentScreen = 'calc'; // Tracks which screen is active
 
-/**
+/*
  * Switches the active screen/tab and updates the browser history for back button support.
  * Also closes any open modals or image overlays.
  * @param {string} name - Target screen name: 'calc', 'transcript', or 'profiles'
  * @param {boolean} fromPopState - True if called from the popstate event (history back/forward)
  */
 function showScreen(name, fromPopState) {
-  // Close image overlay if open
   const ov = document.getElementById('imgOverlay');
   if (ov) ov.style.display = 'none';
-
-  // Close any open modals
+  
   ['newProfileModal', 'deleteModal', 'resetModal', 'renameModal', 'targetModal'].forEach(id => {
     document.getElementById(id)?.classList.remove('open');
   });
 
-  // Toggle visibility of main screen containers
+  // Visibility of Main Screen Containers
   document.getElementById('calcScreen').classList.toggle('active', name === 'calc');
   document.getElementById('transcriptScreen').classList.toggle('active', name === 'transcript');
   document.getElementById('profileScreen').classList.toggle('active', name === 'profiles');
-  // Toggle active state on navigation buttons
+  // Active state on navigation buttons
   document.getElementById('navCalc').classList.toggle('active', name === 'calc');
   document.getElementById('navTranscript').classList.toggle('active', name === 'transcript');
   document.getElementById('navProfiles').classList.toggle('active', name === 'profiles');
@@ -49,11 +47,6 @@ function showScreen(name, fromPopState) {
   _currentScreen = name;
 }
 
-/**
- * Handles the browser's back button (popstate event).
- * Closes image overlay if open, otherwise navigates to the Calc screen.
- * The sentinel history entry ensures that back from any non-calc screen returns to Calc.
- */
 window.addEventListener('popstate', function (e) {
   const screen = (e.state && e.state.screen) || 'calc';
 
@@ -66,17 +59,14 @@ window.addEventListener('popstate', function (e) {
   }
 
   if (screen === 'calc') {
-    // Arrived at sentinel — show calc
     showScreen('calc', true);
   } else {
-    // Some other state (shouldn't happen normally) — go to calc and reset sentinel
     showScreen('calc', true);
-    // Replace whatever state we landed on with calc sentinel
     history.replaceState({ screen: 'calc' }, '', '');
   }
 });
 
-// ── semester navigation (changing year/semester dropdowns) ───────────────────────────────────────
+// Semester Navigation
 /**
  * Gets the current semester key based on dropdown selections.
  * @returns {string} Key in format "Year X|Fall/Spring"
@@ -87,24 +77,24 @@ function currentKey() {
 
 /**
  * Handles department selection change.
- * If a profile is active, the department selector is disabled and this function does nothing.
+ * If a profile is active, the department selector is disabled.
  * Otherwise, updates the active department, persists current semester data, and reloads courses.
  */
 function onDeptChange() {
   if (activeProfileId) {
-    // Prevent department change when a profile is loaded (profiles are department-bound)
+    // Prevent department change when a profile is loaded
     document.getElementById('deptSel').value = activeDept;
     return;
   }
   persist(activeKey);               // Save current semester's grades before switching
   activeDept = document.getElementById('deptSel').value;
-  persistToProfile();               // Persist department change to profile (if any)
+  persistToProfile();               // Persist department change to profile
   loadCourses();                    // Reload courses for the new department
   if (window.updateSwipeDots) updateSwipeDots();
 }
 
 /**
- * Handles year dropdown change. Resets semester to "Fall" and switches to that semester.
+ * When the Year is changed, go back to Fall Semester automatically.
  */
 function onYearChange() {
   document.getElementById('semSel').value = 'Fall';
@@ -122,22 +112,22 @@ function switchSemester() {
   if (window.updateSwipeDots) updateSwipeDots();
 }
 
-// ── profile actions (load profile) ───────────────────────────────────────────
+// Profile Actions
 /**
  * Loads a different profile by ID.
  * Saves current semester data, updates active profile ID, reloads all state,
- * refreshes UI components, and flushes any pending save.
+ * refreshes UI components.
  * @param {string} id - Profile ID to load
  */
 function loadProfile(id) {
   persist(activeKey);               // Save current semester data to old profile
   persistToProfile();               // Ensure old profile data is stored
   setActiveProfileId(id);           // Update active profile ID in localStorage
-  loadActiveProfile();              // Reload global state (semData, semHistory, activeDept)
+  loadActiveProfile();              // Reload semData/semHistory/activeDept
   document.getElementById('deptSel').value = activeDept;
   loadCourses();                    // Load courses for the new profile's current semester
   updateHistoryStrip();             // Refresh the semester history chips
-  updateCumulative();               // Recompute cumulative GPA
+  updateCumulative();               // Recompute cum. GPA
   renderProfileList();              // Update profile list highlight
   if (typeof flushPendingSave === 'function') flushPendingSave();
 }
@@ -169,14 +159,14 @@ window.handleBackButton = function () {
     showScreen('calc');
     return true;
   }
-  // 4. Already on calc → let Android exit the app
+  // 4. Already on calc → Exit the app
   return false;
 };
 
-// ── initialization ─────────────────────────────────────────────────────────
-loadTheme();                // Apply saved light/dark theme
-loadActiveProfile();        // Load the last active profile (or default state)
+// Initilization
+loadTheme();                // Light/Dark Theme
+loadActiveProfile();        // Load the active Profile
 loadCourses();              // Load courses for the active semester
-updateSwipeDots();          // Initialize touch swipe indicator dots
+updateSwipeDots();          // Initialize touch swipe
 // Establish the calc screen as the base history entry (sentinel)
 history.replaceState({ screen: 'calc' }, '', '');
