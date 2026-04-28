@@ -1,4 +1,4 @@
-// ── grade systems ─────────────────────────────────────────────
+// Grade System
 const GRADES       = ["AA","BA","BB","CB","CC","DC","DD","FD","FF","SKIP"];
 const GRADE_POINTS = {AA:4.0,BA:3.5,BB:3.0,CB:2.5,CC:2.0,DC:1.5,DD:1.0,FD:0.5,FF:0.0};
 const ZERO_CR_GRADES = ["S","U","SKIP"];
@@ -10,7 +10,7 @@ const SEM_ORDER = [
   ["Year 4","Fall"],["Year 4","Spring"],
 ];
 
-// ── CNGB course data ──────────────────────────────────────────
+// CNGB Courses
 const CNGB_PRESETS = {
   "Year 1|Fall": [
     ["PHYS 105 · General Physics I",4],
@@ -78,7 +78,7 @@ const CNGB_ELECTIVES = {
   "Year 4|Spring": ["Free Elective","Technical Elective 1","Technical Elective 2","Technical Elective 3"],
 };
 
-// ── IENG course data ──────────────────────────────────────────
+// IENG Courses
 const IENG_PRESETS = {
   "Year 1|Fall": [
     ["IEB 113E · Intro to Industrial Eng. & Ethics",2],
@@ -147,7 +147,7 @@ const IENG_ELECTIVES = {
   "Year 4|Spring": ["8th Sem Elective (Functional)","8th Sem Elective (Analytical)"],
 };
 
-// ── FE course data ────────────────────────────────────────────
+// FE Courses
 const FE_PRESETS = {
   "Year 1|Fall": [
     ["BEB 650 · Basic Information & Communication Tech.",2],
@@ -218,7 +218,7 @@ const FE_PRESETS = {
 };
 const FE_ELECTIVES = {};
 
-// ── helpers ───────────────────────────────────────────────────
+// Helpers
 let activeDept = 'CNGB';
 function getCoursePresets(){ return activeDept==='IENG'?IENG_PRESETS:activeDept==='FE'?FE_PRESETS:CNGB_PRESETS; }
 function getElectivePresets(){ return activeDept==='IENG'?IENG_ELECTIVES:activeDept==='FE'?FE_ELECTIVES:CNGB_ELECTIVES; }
