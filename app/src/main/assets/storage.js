@@ -1,4 +1,4 @@
-// ── storage (localStorage helpers) ───────────────────────────────────
+// Storage
 /**
  * Retrieves all profiles from localStorage.
  * @returns {Object} Dictionary of profile objects, or empty object if none exist.
@@ -35,7 +35,7 @@ function setActiveProfileId(id) {
   localStorage.setItem('gpa_activeProfile', id);
 }
 
-// ── global state variables ─────────────────────────────────────────
+// Global Variables
 let activeKey = 'Year 1|Fall';        // Currently selected semester (e.g., "Year 1|Fall")
 let semData = {};                     // Holds grades/credits for each department+semester key
 let semHistory = {};                  // Holds calculated GPA and credits per semester key
@@ -44,8 +44,8 @@ let deleteTargetId = null;            // Temporarily stores profile ID scheduled
 let deletedProfile = null;            // Stores deleted profile data for undo
 
 /**
- * Enables or disables the department selector based on whether a profile is active.
- * Profiles are tied to a specific department; selector is disabled when a profile is loaded.
+ * If the profile is selected, disable the selection.
+ * Profiles are tied to only 1 department.
  */
 function updateDeptSelectState() {
   const deptSel = document.getElementById('deptSel');
@@ -69,7 +69,7 @@ function loadActiveProfile() {
     document.getElementById('activeProfileName').textContent = profiles[activeProfileId].name;
     document.getElementById('activeProfileBarName').textContent = profiles[activeProfileId].name;
   } else {
-    // No active profile: reset state to defaults
+    // If there is no active profile, reset.
     semData = {};
     semHistory = {};
     activeDept = 'CNGB';
@@ -95,7 +95,7 @@ function persistToProfile() {
 }
 
 /**
- * Calculates cumulative GPA and honor designation from semester history.
+ * Calculate cum. GPA and honor badges.
  * @param {Object} sh - Semester history object (keys: semester keys, values: {gpa, credits})
  * @returns {Object|null} Object with `val` (GPA string) and `honor` (string), or null if no data.
  */
