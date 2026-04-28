@@ -1,120 +1,171 @@
-// ── screen / history ──────────────────────────────────────────
-let _currentScreen='calc';
+// ── screen / history (navigation between tabs: Calc, Transcript, Profiles) ──────────────────────────────────────────
+let _currentScreen = 'calc'; // Tracks which screen is currently visible: 'calc', 'transcript', or 'profiles'
 
-function showScreen(name,fromPopState){
+/**
+ * Switches the active screen/tab and updates the browser history for back button support.
+ * Also closes any open modals or image overlays.
+ * @param {string} name - Target screen name: 'calc', 'transcript', or 'profiles'
+ * @param {boolean} fromPopState - True if called from the popstate event (history back/forward)
+ */
+function showScreen(name, fromPopState) {
   // Close image overlay if open
-  const ov=document.getElementById('imgOverlay');
-  if(ov) ov.style.display='none';
+  const ov = document.getElementById('imgOverlay');
+  if (ov) ov.style.display = 'none';
 
   // Close any open modals
-  ['newProfileModal','deleteModal','resetModal','renameModal','targetModal'].forEach(id=>{
+  ['newProfileModal', 'deleteModal', 'resetModal', 'renameModal', 'targetModal'].forEach(id => {
     document.getElementById(id)?.classList.remove('open');
   });
 
-  document.getElementById('calcScreen').classList.toggle('active',name==='calc');
-  document.getElementById('transcriptScreen').classList.toggle('active',name==='transcript');
-  document.getElementById('profileScreen').classList.toggle('active',name==='profiles');
-  document.getElementById('navCalc').classList.toggle('active',name==='calc');
-  document.getElementById('navTranscript').classList.toggle('active',name==='transcript');
-  document.getElementById('navProfiles').classList.toggle('active',name==='profiles');
-  if(name==='profiles')   renderProfileList();
-  if(name==='transcript') renderTranscript();
+  // Toggle visibility of main screen containers
+  document.getElementById('calcScreen').classList.toggle('active', name === 'calc');
+  document.getElementById('transcriptScreen').classList.toggle('active', name === 'transcript');
+  document.getElementById('profileScreen').classList.toggle('active', name === 'profiles');
+  // Toggle active state on navigation buttons
+  document.getElementById('navCalc').classList.toggle('active', name === 'calc');
+  document.getElementById('navTranscript').classList.toggle('active', name === 'transcript');
+  document.getElementById('navProfiles').classList.toggle('active', name === 'profiles');
 
-  if(!fromPopState){
-    if(name==='calc'){
-      // Going to calc: pop back to the sentinel (one entry in stack)
-      // replaceState so the sentinel IS the calc entry
-      history.replaceState({screen:'calc'},'','');
+  // Refresh dynamic content when switching to a screen that needs it
+  if (name === 'profiles') renderProfileList();
+  if (name === 'transcript') renderTranscript();
+
+  // History management: ensures the back button always returns to the Calc screen
+  if (!fromPopState) {
+    if (name === 'calc') {
+      // Going to calc: replace state so the calc screen becomes the sentinel entry
+      history.replaceState({ screen: 'calc' }, '', '');
     } else {
       // Going to a non-calc screen: push on top of sentinel
       // so back button always lands on sentinel → calc
-      if(_currentScreen==='calc'){
-        history.pushState({screen:name},'','');
+      if (_currentScreen === 'calc') {
+        history.pushState({ screen: name }, '', '');
       } else {
         // Switching between non-calc screens: replace current entry
-        history.replaceState({screen:name},'','');
+        history.replaceState({ screen: name }, '', '');
       }
     }
   }
-  _currentScreen=name;
+  _currentScreen = name;
 }
 
-window.addEventListener('popstate',function(e){
-  const screen=(e.state&&e.state.screen)||'calc';
+/**
+ * Handles the browser's back button (popstate event).
+ * Closes image overlay if open, otherwise navigates to the Calc screen.
+ * The sentinel history entry ensures that back from any non-calc screen returns to Calc.
+ */
+window.addEventListener('popstate', function (e) {
+  const screen = (e.state && e.state.screen) || 'calc';
 
-  // Image overlay back
-  const ov=document.getElementById('imgOverlay');
-  if(ov&&ov.style.display!=='none'){
-    ov.style.display='none';
-    _currentScreen='transcript';
+  // If image overlay is open, close it and stop propagation
+  const ov = document.getElementById('imgOverlay');
+  if (ov && ov.style.display !== 'none') {
+    ov.style.display = 'none';
+    _currentScreen = 'transcript';
     return;
   }
 
-  if(screen==='calc'){
+  if (screen === 'calc') {
     // Arrived at sentinel — show calc
-    showScreen('calc',true);
+    showScreen('calc', true);
   } else {
-    // Some other state (e.g. imgOverlay pushed state) — go to calc
-    showScreen('calc',true);
+    // Some other state (shouldn't happen normally) — go to calc and reset sentinel
+    showScreen('calc', true);
     // Replace whatever state we landed on with calc sentinel
-    history.replaceState({screen:'calc'},'','');
+    history.replaceState({ screen: 'calc' }, '', '');
   }
 });
 
-// ── semester navigation ───────────────────────────────────────
-function currentKey(){ return document.getElementById('yearSel').value+'|'+document.getElementById('semSel').value; }
+// ── semester navigation (changing year/semester dropdowns) ───────────────────────────────────────
+/**
+ * Gets the current semester key based on dropdown selections.
+ * @returns {string} Key in format "Year X|Fall/Spring"
+ */
+function currentKey() {
+  return document.getElementById('yearSel').value + '|' + document.getElementById('semSel').value;
+}
 
-function onDeptChange(){
+/**
+ * Handles department selection change.
+ * If a profile is active, the department selector is disabled and this function does nothing.
+ * Otherwise, updates the active department, persists current semester data, and reloads courses.
+ */
+function onDeptChange() {
   if (activeProfileId) {
+    // Prevent department change when a profile is loaded (profiles are department-bound)
     document.getElementById('deptSel').value = activeDept;
     return;
   }
-  persist(activeKey);
-  activeDept=document.getElementById('deptSel').value;
-  persistToProfile();
-  loadCourses();
-  if(window.updateSwipeDots) updateSwipeDots();
+  persist(activeKey);               // Save current semester's grades before switching
+  activeDept = document.getElementById('deptSel').value;
+  persistToProfile();               // Persist department change to profile (if any)
+  loadCourses();                    // Reload courses for the new department
+  if (window.updateSwipeDots) updateSwipeDots();
 }
 
-function onYearChange(){
-  document.getElementById('semSel').value='Fall';
+/**
+ * Handles year dropdown change. Resets semester to "Fall" and switches to that semester.
+ */
+function onYearChange() {
+  document.getElementById('semSel').value = 'Fall';
   switchSemester();
 }
 
-function switchSemester(){
-  persist(activeKey);
-  activeKey=currentKey();
-  loadCourses();
-  if(window.updateSwipeDots) updateSwipeDots();
+/**
+ * Switches to the semester currently selected in the year/semester dropdowns.
+ * Saves the outgoing semester's data, updates activeKey, and loads the new semester.
+ */
+function switchSemester() {
+  persist(activeKey);               // Save current semester data
+  activeKey = currentKey();         // Update active semester key
+  loadCourses();                    // Load courses for the new semester
+  if (window.updateSwipeDots) updateSwipeDots();
 }
 
-// ── profile actions ───────────────────────────────────────────
-function loadProfile(id){
-  persist(activeKey); persistToProfile();
-  setActiveProfileId(id);
-  loadActiveProfile();
-  document.getElementById('deptSel').value=activeDept;
-  loadCourses(); updateHistoryStrip(); updateCumulative(); renderProfileList();
-  if(typeof flushPendingSave==='function') flushPendingSave();
+// ── profile actions (load profile) ───────────────────────────────────────────
+/**
+ * Loads a different profile by ID.
+ * Saves current semester data, updates active profile ID, reloads all state,
+ * refreshes UI components, and flushes any pending save.
+ * @param {string} id - Profile ID to load
+ */
+function loadProfile(id) {
+  persist(activeKey);               // Save current semester data to old profile
+  persistToProfile();               // Ensure old profile data is stored
+  setActiveProfileId(id);           // Update active profile ID in localStorage
+  loadActiveProfile();              // Reload global state (semData, semHistory, activeDept)
+  document.getElementById('deptSel').value = activeDept;
+  loadCourses();                    // Load courses for the new profile's current semester
+  updateHistoryStrip();             // Refresh the semester history chips
+  updateCumulative();               // Recompute cumulative GPA
+  renderProfileList();              // Update profile list highlight
+  if (typeof flushPendingSave === 'function') flushPendingSave();
 }
 
-// ── Android back button bridge ────────────────────────────────
-window.handleBackButton = function(){
+// ── Android back button bridge (for WebView integration) ────────────────────────────────
+/**
+ * Exposed to Android WebView to handle hardware back button.
+ * Returns true if the event was consumed (UI changed), false if the app should exit.
+ * Priority: 1) close image overlay, 2) close any modal, 3) go to calc screen if not already,
+ * 4) let Android exit the app.
+ * @returns {boolean} True if back press was handled internally, false otherwise.
+ */
+window.handleBackButton = function () {
   // 1. Image overlay open → close it
   const ov = document.getElementById('imgOverlay');
-  if(ov && ov.style.display !== 'none'){
+  if (ov && ov.style.display !== 'none') {
     ov.style.display = 'none';
     return true;
   }
   // 2. Any modal open → close it
-  const modals = ['newProfileModal','deleteModal','resetModal','renameModal','targetModal'];
+  const modals = ['newProfileModal', 'deleteModal', 'resetModal', 'renameModal', 'targetModal'];
   const openModal = modals.find(id => document.getElementById(id)?.classList.contains('open'));
-  if(openModal){
+  if (openModal) {
     document.getElementById(openModal).classList.remove('open');
     return true;
   }
   // 3. Not on calc tab → go to calc
-  if(_currentScreen !== 'calc'){
+  if (_currentScreen !== 'calc') {
     showScreen('calc');
     return true;
   }
@@ -122,10 +173,10 @@ window.handleBackButton = function(){
   return false;
 };
 
-
-loadTheme();
-loadActiveProfile();
-loadCourses();
-updateSwipeDots();
-// Establish the calc sentinel as the base history entry
-history.replaceState({screen:'calc'},'','');
+// ── initialization ─────────────────────────────────────────────────────────
+loadTheme();                // Apply saved light/dark theme
+loadActiveProfile();        // Load the last active profile (or default state)
+loadCourses();              // Load courses for the active semester
+updateSwipeDots();          // Initialize touch swipe indicator dots
+// Establish the calc screen as the base history entry (sentinel)
+history.replaceState({ screen: 'calc' }, '', '');
