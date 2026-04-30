@@ -69,29 +69,7 @@ Build steps:
 
 The Android app simply loads index.html from the assets folder, so any changes made to the HTML/CSS/JS files will be automatically reflected in the APK after a rebuild.
 
-## Project Structure
-GPA-Calculator-for-TAU/
-├── index.html  # Main web app shell
-├── style.css   # Complete stylesheet (dark/light themes)
-├── app.js      # Screen navigation, profile management, Android bridge
-├── calc.js     # GPA calculation, what-if logic, save/load mechanics
-├── data.js     # Course presets for CNGB, IENG, FE and grade scales
-├── storage.js  # localStorage helpers (profiles, active profile, etc.)
-├── app/        # Android wrapper project
-│   ├── build.gradle.kts       
-│   ├── proguard-rules.pro     
-│   └── src/                   
-│       └── main/              
-│           ├── AndroidManifest.xml 
-│           ├── assets/        # All files needed for building APK Version
-│           └── java/com/metu/gpacalc/ 
-│               └── MainActivity.java # WebView host + JavaScript bridge
-├── build.gradle.kts           # Root Gradle build file
-├── settings.gradle.kts        
-├── gradle/                    
-├── gradlew                    
-├── gradlew.bat                
-└── .gitignore                 
+## Project Structure     
 
 ## Usage Guide
 
