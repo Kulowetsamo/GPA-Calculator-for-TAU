@@ -40,6 +40,8 @@ The latest version is hosted on GitHub Pages:
 
 You can also download the pre‑built Android APK from the [Releases page](https://github.com/Kulowetsamo/GPA-Calculator-for-TAU/releases).
 
+## Getting Started
+
 ### Web App
 
 1. **Clone the repository**
@@ -68,7 +70,7 @@ Build steps:
 The Android app simply loads index.html from the assets folder, so any changes made to the HTML/CSS/JS files will be automatically reflected in the APK after a rebuild.
 
 ## Project Structure
-
+` ` `
 GPA-Calculator-for-TAU/
 ├── index.html            # Main web app shell
 ├── style.css             # Complete stylesheet (dark/light themes)
@@ -90,7 +92,7 @@ GPA-Calculator-for-TAU/
 ├── gradle/
 ├── gradlew / gradlew.bat
 └── .gitignore
-
+` ` `
 ## Usage Guide
 
 1. Choose your department and semester
