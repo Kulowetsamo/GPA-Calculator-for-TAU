@@ -71,13 +71,13 @@ The Android app simply loads index.html from the assets folder, so any changes m
 
 ## Project Structure
 GPA-Calculator-for-TAU/
-├── index.html                 # Main web app shell
-├── style.css                  # Complete stylesheet (dark/light themes)
-├── app.js                     # Screen navigation, profile management, Android bridge
-├── calc.js                    # GPA calculation, what-if logic, save/load mechanics
-├── data.js                    # Course presets for CNGB, IENG, FE and grade scales
-├── storage.js                 # localStorage helpers (profiles, active profile, etc.)
-├── app/                       # Android wrapper project
+├── index.html  # Main web app shell
+├── style.css   # Complete stylesheet (dark/light themes)
+├── app.js      # Screen navigation, profile management, Android bridge
+├── calc.js     # GPA calculation, what-if logic, save/load mechanics
+├── data.js     # Course presets for CNGB, IENG, FE and grade scales
+├── storage.js  # localStorage helpers (profiles, active profile, etc.)
+├── app/        # Android wrapper project
 │   ├── build.gradle.kts       
 │   ├── proguard-rules.pro     
 │   └── src/                   
