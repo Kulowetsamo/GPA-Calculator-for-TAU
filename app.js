@@ -111,7 +111,7 @@ window.handleBackButton = function(){
   }
   // 2. Any modal open → close it
   const modals = ['newProfileModal','deleteModal','resetModal','renameModal','targetModal'];
-  const grModals = ['grSaveModal','grDeleteModal','grRenameModal'];
+  const grModals = ['grSaveModal','grDeleteModal','grRenameModal','grSaveCourseModal'];
   const openGrModal = grModals.find(id => document.getElementById(id)?.classList.contains('open'));
   if(openGrModal){ document.getElementById(openGrModal).classList.remove('open'); return true; }
   const openModal = modals.find(id => document.getElementById(id)?.classList.contains('open'));

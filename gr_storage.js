@@ -63,7 +63,7 @@ const _RAW_BUILTINS = [
   },
   {
     name: '2 MT · 1 Final · 10% Bonus Quizzes',
-    weights: { midterm: 40, final: 50, quizzes: 0, bonusQuizzes: 10 },
+    weights: { midterm: 60, final: 40, quizzes: 0, bonusQuizzes: 10 },
     midtermCount: 2,
     hasQuizzes: false,
     hasBonusQuiz: true,

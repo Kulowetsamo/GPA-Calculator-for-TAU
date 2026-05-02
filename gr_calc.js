@@ -1,6 +1,6 @@
 // ── gr_calc.js ────────────────────────────────────────────────
 
-const LETTER_SCALE = [
+const DEFAULT_LETTER_SCALE = [
   [90, 'AA', 'Excellent'],
   [85, 'BA', 'Very Good+'],
   [80, 'BB', 'Very Good'],
@@ -11,6 +11,29 @@ const LETTER_SCALE = [
   [50, 'FD', 'Conditional Fail'],
   [0,  'FF', 'Fail'],
 ];
+
+const SCALE_STORAGE_KEY = 'gradecalc_scale';
+
+function grLoadScale() {
+  try {
+    const raw = localStorage.getItem(SCALE_STORAGE_KEY);
+    if (!raw) return DEFAULT_LETTER_SCALE.map(r => [...r]);
+    const parsed = JSON.parse(raw);
+    if (parsed.length === 9) return parsed;
+  } catch(e) {}
+  return DEFAULT_LETTER_SCALE.map(r => [...r]);
+}
+
+function grSaveScale(scale) {
+  localStorage.setItem(SCALE_STORAGE_KEY, JSON.stringify(scale));
+}
+
+function grResetScale() {
+  localStorage.removeItem(SCALE_STORAGE_KEY);
+  return DEFAULT_LETTER_SCALE.map(r => [...r]);
+}
+
+let LETTER_SCALE = grLoadScale();
 
 function letterGrade(score) {
   for (const [min, code, desc] of LETTER_SCALE) {
@@ -66,7 +89,7 @@ function computeGrade(state) {
     const wt    = parseFloat(extraWeights[i]) || 0;
     const label = extraLabels[i] || `Extra ${i + 1}`;
     if (grade !== null && grade !== '' && wt > 0) {
-      const contrib = parseFloat(grade);
+      const contrib = parseFloat(grade) * wt / weightTotal;
       score += contrib;
       breakdown.push({ label: `${label} × ${wt}%`, contribution: contrib });
     }
@@ -107,6 +130,7 @@ function initGradeScreen() {
     <div class="gr-nav">
       <button class="gr-nav-btn gr-active" id="grNavCalc" onclick="grShowScreen('calc')">Calc</button>
       <button class="gr-nav-btn" id="grNavTemplates" onclick="grShowScreen('templates')">Templates</button>
+      <button class="gr-nav-btn" id="grNavScale" onclick="grShowScreen('scale')">Scale</button>
     </div>
 
     <!-- CALC sub-screen -->
@@ -191,6 +215,26 @@ function initGradeScreen() {
           <div class="gr-result-letter" id="grResLetter"></div>
           <div class="gr-result-divider"></div>
           <div id="grResBreakdown"></div>
+          <div class="gr-result-divider" style="margin-top:12px;"></div>
+          <button class="gr-btn-accent gr-btn-full" style="margin-top:12px;" onclick="grOpenSaveCourseModal()">Save to Course</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SCALE sub-screen -->
+    <div class="gr-screen" id="grScaleScreen">
+      <div class="gr-main">
+        <div class="gr-card">
+          <div class="gr-card-label-row">
+            <div class="gr-card-label">Grade Scale Thresholds</div>
+            <button class="gr-btn-ghost" style="font-size:10px;" onclick="grResetScaleUI()">Reset defaults</button>
+          </div>
+          <p style="font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.7;">
+            Set the minimum score required for each letter grade.<br>
+            FF has a fixed threshold of 0 and cannot be changed.
+          </p>
+          <div id="grScaleRows"></div>
         </div>
 
       </div>
@@ -219,44 +263,55 @@ function initGradeScreen() {
   if (!document.getElementById('grSaveModal')) {
     document.body.insertAdjacentHTML('beforeend', `
       <div id="grSaveModal">
-        <div class="modal">
+        <div class="gr-modal">
           <h2>Save Template</h2>
           <p>Give this weight configuration a name so you can reload it anytime.</p>
           <input type="text" id="grSaveModalInput" placeholder="e.g. English — 2 MT 1 Final" maxlength="50"
                  onkeydown="if(event.key==='Enter') grConfirmSaveTemplate()"/>
-          <div class="modal-btns">
+          <div class="gr-modal-btns">
             <button class="gr-btn-ghost" onclick="grCloseSaveModal()">Cancel</button>
             <button class="gr-btn-accent" onclick="grConfirmSaveTemplate()">Save</button>
           </div>
         </div>
       </div>
       <div id="grDeleteModal">
-        <div class="modal">
+        <div class="gr-modal">
           <h2>Delete Template</h2>
           <p id="grDeleteModalText">Are you sure?</p>
-          <div class="modal-btns">
+          <div class="gr-modal-btns">
             <button class="gr-btn-ghost" onclick="grCloseDeleteModal()">Cancel</button>
             <button class="gr-btn-danger" onclick="grConfirmDeleteTemplate()">Delete</button>
           </div>
         </div>
       </div>
       <div id="grRenameModal">
-        <div class="modal">
+        <div class="gr-modal">
           <h2>Rename Template</h2>
           <p>Enter a new name for this template.</p>
           <input type="text" id="grRenameInput" placeholder="New name" maxlength="50"
                  onkeydown="if(event.key==='Enter') grConfirmRename()"/>
-          <div class="modal-btns">
+          <div class="gr-modal-btns">
             <button class="gr-btn-ghost" onclick="grCloseRenameModal()">Cancel</button>
             <button class="gr-btn-accent" onclick="grConfirmRename()">Rename</button>
           </div>
         </div>
       </div>
       <div id="grToast"></div>
+      <div id="grSaveCourseModal">
+        <div class="gr-modal">
+          <h2>Save to Course</h2>
+          <p id="grSaveCourseDesc">Choose a course from the current semester to apply this grade.</p>
+          <div id="grCoursePickerList" style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;margin-bottom:14px;"></div>
+          <div class="gr-modal-btns">
+            <button class="gr-btn-ghost" onclick="grCloseSaveCourseModal()">Cancel</button>
+          </div>
+        </div>
+      </div>
     `);
   }
 
   // Init
+  LETTER_SCALE = grLoadScale();
   document.getElementById('grQuizCard').style.display = 'none';
   document.getElementById('grBonusGradeRow').style.display = 'none';
   grRenderMidterms();
@@ -270,9 +325,12 @@ function initGradeScreen() {
 function grShowScreen(name) {
   document.getElementById('grCalcScreen').classList.toggle('gr-active', name === 'calc');
   document.getElementById('grTemplatesScreen').classList.toggle('gr-active', name === 'templates');
+  document.getElementById('grScaleScreen').classList.toggle('gr-active', name === 'scale');
   document.getElementById('grNavCalc').classList.toggle('gr-active', name === 'calc');
   document.getElementById('grNavTemplates').classList.toggle('gr-active', name === 'templates');
+  document.getElementById('grNavScale').classList.toggle('gr-active', name === 'scale');
   if (name === 'templates') grRenderTemplatesScreen();
+  if (name === 'scale') grRenderScaleScreen();
   _grCurrentScreen = name;
 }
 
@@ -317,7 +375,7 @@ function grRenderMidterms() {
          value="${val !== null && val !== undefined ? val : ''}"
          oninput="grMidterms[${i}]=this.value===''?null:parseFloat(this.value);grCalc()">
        <span class="gr-field-unit">/100</span>
-       ${grMidterms.length > 1
+       ${!getActiveTemplateId() && grMidterms.length > 1
          ? `<button class="gr-remove-btn" onclick="grRemoveMidterm(${i})">×</button>`
          : '<span style="width:20px;"></span>'}`;
     list.appendChild(row);
@@ -687,4 +745,198 @@ function grConfirmRename() {
   grRenderTemplatesScreen();
   grLoadActiveTemplate();
   grShowToast('Renamed ✓');
+}
+
+// ── scale screen ──────────────────────────────────────────────
+
+function grRenderScaleScreen() {
+  const container = document.getElementById('grScaleRows');
+  if (!container) return;
+  container.innerHTML = '';
+
+  // All rows except FF (last), which is always 0
+  LETTER_SCALE.slice(0, -1).forEach((entry, i) => {
+    const [min, code, desc] = entry;
+    const row = document.createElement('div');
+    row.className = 'gr-field-row';
+    row.innerHTML =
+      `<span class="gr-field-label" style="display:flex;align-items:center;gap:8px;">
+         <span style="color:var(--accent);font-weight:500;width:24px;">${code}</span>
+         <span style="color:var(--muted);font-size:11px;">${desc}</span>
+       </span>
+       <input class="gr-field-input" type="number" min="1" max="100"
+         value="${min}"
+         data-index="${i}"
+         oninput="grScaleInputChanged(this)">
+       <span class="gr-field-unit">pts</span>`;
+    container.appendChild(row);
+  });
+
+  // FF row — locked at 0
+  const ffRow = document.createElement('div');
+  ffRow.className = 'gr-field-row';
+  ffRow.innerHTML =
+    `<span class="gr-field-label" style="display:flex;align-items:center;gap:8px;">
+       <span style="color:var(--danger);font-weight:500;width:24px;">FF</span>
+       <span style="color:var(--muted);font-size:11px;">Fail</span>
+     </span>
+     <input class="gr-field-input" type="number" value="0" disabled
+       style="opacity:0.35;cursor:not-allowed;">
+     <span class="gr-field-unit">pts</span>`;
+  container.appendChild(ffRow);
+
+}
+
+function grScaleInputChanged(input) {
+  const i   = parseInt(input.dataset.index);
+  const val = parseInt(input.value);
+  if (isNaN(val) || val < 0 || val > 100) return;
+
+  LETTER_SCALE[i][0] = val;
+
+  // Enforce descending order: nudge neighbours to stay consistent
+  for (let j = i - 1; j >= 0; j--) {
+    if (LETTER_SCALE[j][0] <= LETTER_SCALE[j + 1][0]) {
+      LETTER_SCALE[j][0] = LETTER_SCALE[j + 1][0] + 1;
+    }
+  }
+  for (let j = i + 1; j < LETTER_SCALE.length - 1; j++) {
+    if (LETTER_SCALE[j][0] >= LETTER_SCALE[j - 1][0]) {
+      LETTER_SCALE[j][0] = LETTER_SCALE[j - 1][0] - 1;
+    }
+  }
+
+  grSaveScale(LETTER_SCALE);
+
+  // Refresh inputs to show nudged values
+  const inputs = document.querySelectorAll('#grScaleRows input[data-index]');
+  inputs.forEach(inp => {
+    const idx = parseInt(inp.dataset.index);
+    inp.value = LETTER_SCALE[idx][0];
+  });
+
+  grCalc(); // re-run result with new scale
+}
+
+
+function grResetScaleUI() {
+  LETTER_SCALE = grResetScale();
+  grRenderScaleScreen();
+  grCalc();
+  grShowToast('Scale reset to defaults ✓');
+}
+
+// ── save to course ────────────────────────────────────────────
+
+function grOpenSaveCourseModal() {
+  const resultCard = document.getElementById('grResultCard');
+  if (!resultCard || resultCard.style.display === 'none') {
+    grShowToast('Calculate a grade first'); return;
+  }
+
+  if (!activeProfileId) {
+    grShowToast('No active profile — set one in Calc tab first'); return;
+  }
+
+  // Get the letter grade currently shown
+  const letterText = document.getElementById('grResLetter').textContent; // e.g. "AA — Excellent"
+  const letterCode = letterText.split('—')[0].trim();
+
+  const key    = activeKey;   // e.g. "Year 1|Fall"
+  const dept   = activeDept;  // e.g. "CNGB"
+  const dataKey = dept + '|' + key;
+
+  const presets   = getCoursePresets();    // { "Year 1|Fall": [[name,cr],...], ... }
+  const electives = getElectivePresets();  // { "Year 1|Fall": [name,...], ... }
+
+  // loadCourses sorts presets by credits descending before rendering/saving
+  const sortedPreset = [...(presets[key] || [])].sort((a, b) => b[1] - a[1]);
+  const electList    = electives[key] || [];
+
+  // Saved semData for this semester (indexed by sorted position)
+  const saved = (semData && semData[dataKey]) || [];
+
+  // Build course list with correct semData index for each course
+  const courseList = [];
+
+  sortedPreset.forEach(([name, credits], i) => {
+    if (credits === 0) return; // skip zero-credit
+    courseList.push({ name, credits, semIndex: i });
+  });
+
+  electList.forEach((name, j) => {
+    const idx     = sortedPreset.length + j;
+    const credits = saved[idx]?.credits || 3;
+    courseList.push({ name, credits, semIndex: idx });
+  });
+
+  const list = document.getElementById('grCoursePickerList');
+  list.innerHTML = '';
+
+  if (!courseList.length) {
+    list.innerHTML = '<div style="font-size:11px;color:var(--muted);padding:8px 0;">No courses found. Make sure a profile and semester are active in the Calc tab.</div>';
+  } else {
+    document.getElementById('grSaveCourseDesc').textContent =
+      `Applying grade ${letterCode} · ${key.replace('|', ' ')}. Pick a course:`;
+
+    courseList.forEach(course => {
+      const btn = document.createElement('button');
+      btn.className = 'gr-course-pick-btn';
+      btn.innerHTML =
+        `<span class="gr-cpb-name">${grEscHtml(course.name)}</span>
+         <span class="gr-cpb-cr">${course.credits} cr</span>`;
+      btn.onclick = () => grConfirmSaveToCourse(course, letterCode, dataKey, sortedPreset.length);
+      list.appendChild(btn);
+    });
+  }
+
+  document.getElementById('grSaveCourseModal').classList.add('open');
+}
+
+function grCloseSaveCourseModal() {
+  document.getElementById('grSaveCourseModal').classList.remove('open');
+}
+
+function grConfirmSaveToCourse(course, gradeCode, dataKey, presetCount) {
+  grCloseSaveCourseModal();
+
+  if (typeof semData === 'undefined') {
+    grShowToast('No active profile/semester'); return;
+  }
+
+  // Ensure the semData array exists and is long enough
+  if (!semData[dataKey]) semData[dataKey] = [];
+  const courses = semData[dataKey];
+
+  // Pad array up to the required index if needed
+  while (courses.length <= course.semIndex) {
+    courses.push({ grade: '', credits: 3, elective: false });
+  }
+
+  // Write the grade into the correct slot
+  courses[course.semIndex].grade   = gradeCode;
+  courses[course.semIndex].credits = course.credits;
+  if (course.semIndex >= presetCount) courses[course.semIndex].elective = true;
+
+  // Recompute semester GPA from all filled slots and save to semHistory
+  const gp = typeof GRADE_POINTS !== 'undefined' ? GRADE_POINTS : {};
+  let pts = 0, cr = 0;
+  courses.forEach(c => {
+    if (c.grade && gp[c.grade] !== undefined && c.credits > 0 && c.grade !== 'SKIP') {
+      pts += gp[c.grade] * c.credits;
+      cr  += c.credits;
+    }
+  });
+
+  if (cr > 0) {
+    semHistory[activeKey] = { gpa: pts / cr, credits: cr };
+  }
+
+  // Persist and fully refresh the GPA calc UI
+  persistToProfile();
+  loadCourses();
+  updateHistoryStrip();
+  updateCumulative();
+
+  grShowToast(`${gradeCode} saved to ${course.name.split('·')[0].trim()} ✓`);
 }

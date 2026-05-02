@@ -313,28 +313,32 @@
 }
 
 /* ── grade modals (appended to body) ── */
-#grSaveModal, #grDeleteModal, #grRenameModal {
+#grSaveModal, #grDeleteModal, #grRenameModal, #grSaveCourseModal {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 300;
   align-items: center;
   justify-content: center;
   padding: 20px;
 }
-#grSaveModal.open, #grDeleteModal.open, #grRenameModal.open { display: flex; }
-#grSaveModal .modal, #grDeleteModal .modal, #grRenameModal .modal {
+#grSaveModal.open, #grDeleteModal.open, #grRenameModal.open, #grSaveCourseModal.open { display: flex; }
+
+.gr-modal {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 22px 20px 18px;
   width: 100%;
-  max-width: 360px;
+  max-width: 380px;
+  font-family: 'DM Mono', monospace;
 }
-#grSaveModal .modal h2, #grDeleteModal .modal h2, #grRenameModal .modal h2 { font-size: 14px; color: var(--text); font-weight: 500; margin-bottom: 6px; }
-#grSaveModal .modal p,  #grDeleteModal .modal p,  #grRenameModal .modal p  { font-size: 11px; color: var(--sub); margin-bottom: 14px; }
-#grSaveModal .modal input[type=text], #grRenameModal .modal input[type=text] {
+.gr-modal h2 { font-size: 14px; color: var(--text); font-weight: 500; margin-bottom: 6px; font-family: 'DM Mono', monospace; }
+.gr-modal p  { font-size: 11px; color: var(--sub); margin-bottom: 14px; line-height: 1.6; font-family: 'DM Mono', monospace; }
+.gr-modal input[type=text] {
   width: 100%;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -346,8 +350,56 @@
   outline: none;
   margin-bottom: 14px;
 }
-#grSaveModal .modal input[type=text]:focus, #grRenameModal .modal input[type=text]:focus { border-color: var(--accent2); }
-#grSaveModal .modal-btns, #grDeleteModal .modal-btns, #grRenameModal .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+.gr-modal input[type=text]:focus { border-color: var(--accent2); }
+.gr-modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+
+body.light #grSaveModal,
+body.light #grDeleteModal,
+body.light #grRenameModal,
+body.light #grSaveCourseModal {
+  background: rgba(200,200,190,0.55);
+}
+
+/* modal buttons — unscoped so they work outside #gradeScreen */
+.gr-modal-btns .gr-btn-ghost {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--sub);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.gr-modal-btns .gr-btn-ghost:hover { border-color: var(--accent2); color: var(--accent2); }
+
+.gr-modal-btns .gr-btn-accent {
+  background: none;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: var(--accent);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.gr-modal-btns .gr-btn-accent:hover { background: rgba(200,240,96,0.08); }
+
+.gr-modal-btns .gr-btn-danger {
+  background: none;
+  border: 1px solid rgba(224,128,128,0.4);
+  border-radius: 6px;
+  color: var(--danger);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.gr-modal-btns .gr-btn-danger:hover { background: rgba(224,128,128,0.08); }
 
 /* ── grade toast ── */
 #grToast {
@@ -368,4 +420,35 @@
   pointer-events: none;
   white-space: nowrap;
   font-family: 'DM Mono', monospace;
+}
+
+/* save-to-course modal uses shared rules above */
+
+.gr-course-pick-btn {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  transition: border-color 0.15s;
+}
+.gr-course-pick-btn:hover { border-color: var(--accent2); }
+.gr-course-pick-btn .gr-cpb-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gr-course-pick-btn .gr-cpb-cr   { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+
+body.light .gr-modal {
+  border: 2px solid #1a1a1a;
+}
+
+body.light .gr-course-pick-btn {
+  border: 2px solid #1a1a1a;
 }
