@@ -1,0 +1,371 @@
+/* ── gr_style.css — scoped to #gradeScreen ─────────────────── */
+
+#gradeScreen {
+  display: none;
+  flex-direction: column;
+}
+#gradeScreen.active {
+  display: flex;
+}
+#gradeScreenScroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 80px;
+}
+
+/* ── grade header ── */
+#gradeScreen .gr-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px 12px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+#gradeScreen .gr-header-title {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 500;
+}
+#gradeScreen .gr-header-sub {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  margin-top: 2px;
+}
+
+/* ── inner sub-tabs ── */
+#gradeScreen .gr-screen { display: none; }
+#gradeScreen .gr-screen.gr-active { display: block; }
+
+#gradeScreen .gr-nav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  position: sticky;
+  top: 49px;
+  z-index: 9;
+}
+#gradeScreen .gr-nav-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 10px 4px 8px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+#gradeScreen .gr-nav-btn.gr-active { color: var(--accent); border-bottom-color: var(--accent); }
+#gradeScreen .gr-nav-btn:hover { color: var(--accent2); }
+
+/* ── main layout ── */
+#gradeScreen .gr-main {
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── cards ── */
+#gradeScreen .gr-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+#gradeScreen .gr-card-label {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+#gradeScreen .gr-card-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+#gradeScreen .gr-card-label-row .gr-card-label { margin-bottom: 0; }
+
+/* ── field rows ── */
+#gradeScreen .gr-field-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+#gradeScreen .gr-field-row:last-child { margin-bottom: 0; }
+#gradeScreen .gr-field-label { flex: 1; color: var(--sub); font-size: 12px; }
+#gradeScreen .gr-field-input {
+  width: 68px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  padding: 5px 8px;
+  text-align: right;
+  outline: none;
+  transition: border-color 0.15s;
+}
+#gradeScreen .gr-field-input:focus { border-color: var(--accent2); }
+#gradeScreen .gr-field-unit { font-size: 10px; color: var(--muted); width: 22px; }
+
+/* ── mt rows ── */
+#gradeScreen .gr-mt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+#gradeScreen .gr-mt-label { color: var(--sub); font-size: 12px; flex: 1; }
+
+/* ── buttons ── */
+#gradeScreen .gr-btn-ghost {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--sub);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+#gradeScreen .gr-btn-ghost:hover { border-color: var(--accent2); color: var(--accent2); }
+
+#gradeScreen .gr-btn-danger {
+  background: none;
+  border: 1px solid rgba(224,128,128,0.3);
+  border-radius: 6px;
+  color: var(--danger);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+#gradeScreen .gr-btn-danger:hover { background: rgba(224,128,128,0.08); }
+
+#gradeScreen .gr-btn-accent {
+  background: none;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--accent);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  padding: 8px 18px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+#gradeScreen .gr-btn-accent:hover  { background: rgba(200,240,96,0.08); }
+#gradeScreen .gr-btn-accent:active { background: rgba(200,240,96,0.15); }
+
+#gradeScreen .gr-add-btn {
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--accent2);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 5px 14px;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: border-color 0.15s, color 0.15s;
+}
+#gradeScreen .gr-add-btn:hover { border-color: var(--accent2); color: var(--accent); }
+
+#gradeScreen .gr-remove-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+#gradeScreen .gr-remove-btn:hover { color: var(--danger); }
+
+/* ── weight status ── */
+#gradeScreen .gr-weight-status {
+  font-size: 11px;
+  margin-top: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  display: none;
+}
+#gradeScreen .gr-weight-status.ok {
+  display: block;
+  background: rgba(200,240,96,0.07);
+  border: 1px solid rgba(200,240,96,0.2);
+  color: var(--accent);
+}
+#gradeScreen .gr-weight-status.warn {
+  display: block;
+  background: rgba(224,128,128,0.08);
+  border: 1px solid rgba(224,128,128,0.3);
+  color: var(--danger);
+}
+
+/* ── result card ── */
+#gradeScreen .gr-result-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 16px 16px;
+  display: none;
+  animation: grFadeIn 0.2s ease;
+}
+@keyframes grFadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+#gradeScreen .gr-result-score {
+  font-size: 44px;
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+#gradeScreen .gr-result-letter {
+  font-size: 12px;
+  color: var(--accent2);
+  letter-spacing: 0.1em;
+  margin-bottom: 16px;
+}
+#gradeScreen .gr-result-divider { height: 1px; background: var(--border); margin-bottom: 12px; }
+#gradeScreen .gr-breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--sub);
+  margin-bottom: 5px;
+}
+#gradeScreen .gr-breakdown-row .bval { color: var(--text); font-weight: 500; }
+
+/* ── active template bar ── */
+#gradeScreen .gr-active-bar {
+  background: var(--surface);
+  border: 1px solid rgba(144,144,208,0.25);
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+#gradeScreen .gr-active-bar-label { font-size: 10px; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 2px; }
+#gradeScreen .gr-active-bar-name  { font-size: 13px; color: var(--accent2); }
+
+/* ── template list ── */
+#gradeScreen .gr-tpl-list { display: flex; flex-direction: column; gap: 10px; }
+#gradeScreen .gr-tpl-item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+#gradeScreen .gr-tpl-item:hover { border-color: var(--accent2); }
+#gradeScreen .gr-tpl-item.gr-active-tpl { border-color: rgba(200,240,96,0.5); }
+#gradeScreen .gr-tpl-item-info { flex: 1; min-width: 0; }
+#gradeScreen .gr-tpl-item-name { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#gradeScreen .gr-tpl-item-meta { font-size: 10px; color: var(--muted); margin-top: 3px; letter-spacing: 0.06em; }
+#gradeScreen .gr-tpl-item-badge {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: rgba(144,144,208,0.12);
+  color: var(--accent2);
+  border-radius: 4px;
+  padding: 2px 7px;
+  flex-shrink: 0;
+}
+#gradeScreen .gr-tpl-item-badge.builtin { background: rgba(200,240,96,0.08); color: var(--muted); }
+#gradeScreen .gr-tpl-actions { display: flex; gap: 6px; flex-shrink: 0; }
+#gradeScreen .gr-section-heading {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+  margin-top: 4px;
+}
+
+/* ── grade modals (appended to body) ── */
+#grSaveModal, #grDeleteModal, #grRenameModal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+#grSaveModal.open, #grDeleteModal.open, #grRenameModal.open { display: flex; }
+#grSaveModal .modal, #grDeleteModal .modal, #grRenameModal .modal {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px 20px 18px;
+  width: 100%;
+  max-width: 360px;
+}
+#grSaveModal .modal h2, #grDeleteModal .modal h2, #grRenameModal .modal h2 { font-size: 14px; color: var(--text); font-weight: 500; margin-bottom: 6px; }
+#grSaveModal .modal p,  #grDeleteModal .modal p,  #grRenameModal .modal p  { font-size: 11px; color: var(--sub); margin-bottom: 14px; }
+#grSaveModal .modal input[type=text], #grRenameModal .modal input[type=text] {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  padding: 8px 10px;
+  outline: none;
+  margin-bottom: 14px;
+}
+#grSaveModal .modal input[type=text]:focus, #grRenameModal .modal input[type=text]:focus { border-color: var(--accent2); }
+#grSaveModal .modal-btns, #grDeleteModal .modal-btns, #grRenameModal .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ── grade toast ── */
+#grToast {
+  position: fixed;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-size: 12px;
+  color: var(--text);
+  letter-spacing: 0.06em;
+  z-index: 400;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+  white-space: nowrap;
+  font-family: 'DM Mono', monospace;
+}

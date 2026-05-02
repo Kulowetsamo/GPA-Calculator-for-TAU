@@ -12,13 +12,16 @@ function showScreen(name,fromPopState){
   });
 
   document.getElementById('calcScreen').classList.toggle('active',name==='calc');
+  document.getElementById('gradeScreen').classList.toggle('active',name==='grade');
   document.getElementById('transcriptScreen').classList.toggle('active',name==='transcript');
   document.getElementById('profileScreen').classList.toggle('active',name==='profiles');
   document.getElementById('navCalc').classList.toggle('active',name==='calc');
+  document.getElementById('navGrade').classList.toggle('active',name==='grade');
   document.getElementById('navTranscript').classList.toggle('active',name==='transcript');
   document.getElementById('navProfiles').classList.toggle('active',name==='profiles');
   if(name==='profiles')   renderProfileList();
   if(name==='transcript') renderTranscript();
+  if(name==='grade')      initGradeScreen();
 
   if(!fromPopState){
     if(name==='calc'){
@@ -108,6 +111,9 @@ window.handleBackButton = function(){
   }
   // 2. Any modal open → close it
   const modals = ['newProfileModal','deleteModal','resetModal','renameModal','targetModal'];
+  const grModals = ['grSaveModal','grDeleteModal','grRenameModal'];
+  const openGrModal = grModals.find(id => document.getElementById(id)?.classList.contains('open'));
+  if(openGrModal){ document.getElementById(openGrModal).classList.remove('open'); return true; }
   const openModal = modals.find(id => document.getElementById(id)?.classList.contains('open'));
   if(openModal){
     document.getElementById(openModal).classList.remove('open');
