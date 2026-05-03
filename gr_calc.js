@@ -43,18 +43,19 @@ function letterGrade(score) {
 }
 
 function computeGrade(state) {
-  const { weights, midterms, final, quizzes, bonusQuiz,
+  const { weights, midterms, final, quizzes, lab, bonusQuiz,
           extraGrades = [], extraWeights = [], extraLabels = [] } = state;
 
   const w = {
     midterm:      parseFloat(weights.midterm)      || 0,
     final:        parseFloat(weights.final)         || 0,
     quizzes:      parseFloat(weights.quizzes)       || 0,
+    lab:          parseFloat(weights.lab)           || 0,
     bonusQuizzes: parseFloat(weights.bonusQuizzes)  || 0,
   };
 
   const extraTotal = extraWeights.reduce((s, v) => s + (parseFloat(v) || 0), 0);
-  const weightTotal = w.midterm + w.final + w.quizzes + w.bonusQuizzes + extraTotal;
+  const weightTotal = w.midterm + w.final + w.quizzes + w.lab + w.bonusQuizzes + extraTotal;
 
   let score = 0;
   const breakdown = [];
@@ -77,6 +78,12 @@ function computeGrade(state) {
     const contrib = parseFloat(quizzes) * w.quizzes / 100;
     score += contrib;
     breakdown.push({ label: `Quizzes × ${w.quizzes}%`, contribution: contrib });
+  }
+
+  if (lab !== null && lab !== '' && w.lab > 0) {
+    const contrib = parseFloat(lab) * w.lab / 100;
+    score += contrib;
+    breakdown.push({ label: `Lab avg (${parseFloat(lab).toFixed(1)}) × ${w.lab}%`, contribution: contrib });
   }
 
   if (bonusQuiz !== null && bonusQuiz !== '' && w.bonusQuizzes > 0) {
@@ -105,6 +112,7 @@ let _gradeScreenReady = false;
 // State
 let grMidterms = [null, null];
 let grQuizEntries = [null];
+let grLabEntries  = [null];
 let grCurrentExtraDefs = [];
 let _grDeleteTargetId = null;
 let _grRenameTargetId = null;
@@ -165,6 +173,11 @@ function initGradeScreen() {
             <input class="gr-field-input" type="number" id="grQuizPct" value="0" min="0" max="100" oninput="grCheckWeights();grCalc()">
             <span class="gr-field-unit">%</span>
           </div>
+          <div class="gr-field-row" id="grLabWeightRow" style="display:none;">
+            <span class="gr-field-label">Lab weight</span>
+            <input class="gr-field-input" type="number" id="grLabPct" value="0" min="0" max="100" oninput="grCheckWeights();grCalc()">
+            <span class="gr-field-unit">%</span>
+          </div>
           <div class="gr-field-row" id="grBonusWeightRow">
             <span class="gr-field-label">Bonus quizzes weight</span>
             <input class="gr-field-input" type="number" id="grBonusPct" value="0" min="0" max="100" oninput="grCheckWeights();grCalc()">
@@ -174,6 +187,7 @@ function initGradeScreen() {
             <button class="gr-btn-ghost" style="font-size:10px;" onclick="grToggleRow('grMtWeightRow','grMidtermCard')">± Midterm</button>
             <button class="gr-btn-ghost" style="font-size:10px;" onclick="grToggleRow('grFinalWeightRow','grFinalGradeRow')">± Final</button>
             <button class="gr-btn-ghost" style="font-size:10px;" onclick="grToggleRow('grQuizWeightRow','grQuizCard')">± Quizzes</button>
+            <button class="gr-btn-ghost" style="font-size:10px;" onclick="grToggleRow('grLabWeightRow','grLabCard')">± Lab</button>
             <button class="gr-btn-ghost" style="font-size:10px;" onclick="grToggleRow('grBonusWeightRow','grBonusGradeRow')">± Bonus</button>
           </div>
           <div class="gr-weight-status" id="grWeightStatus"></div>
@@ -187,12 +201,20 @@ function initGradeScreen() {
           <div id="grMidtermList"></div>
         </div>
 
-        <div class="gr-card" id="grQuizCard" style="display:none;">
+        <div class="gr-card" id="grQuizCard">
           <div class="gr-card-label-row">
             <div class="gr-card-label">Quiz Grades</div>
             <button class="gr-add-btn" id="grAddQuizBtn" onclick="grAddQuiz()">+ add</button>
           </div>
           <div id="grQuizList"></div>
+        </div>
+
+        <div class="gr-card" id="grLabCard">
+          <div class="gr-card-label-row">
+            <div class="gr-card-label">Lab Grades</div>
+            <button class="gr-add-btn" id="grAddLabBtn" onclick="grAddLab()">+ add</button>
+          </div>
+          <div id="grLabList"></div>
         </div>
 
         <div class="gr-card">
@@ -202,12 +224,13 @@ function initGradeScreen() {
             <input class="gr-field-input" type="number" id="grFinGrade" placeholder="—" min="0" max="100" oninput="grCalc()">
             <span class="gr-field-unit">/100</span>
           </div>
-          <div class="gr-field-row" id="grBonusGradeRow" style="display:none;">
+          <div class="gr-field-row" id="grBonusGradeRow">
             <span class="gr-field-label">Bonus quizzes (avg)</span>
             <input class="gr-field-input" type="number" id="grBonusGrade" placeholder="—" min="0" max="100" oninput="grCalc()">
             <span class="gr-field-unit">/100</span>
           </div>
           <div id="grExtraGradesContainer"></div>
+          <button class="gr-add-btn" id="grAddExtraBtn" style="margin-top:8px;" onclick="grAddUserExtra()">+ add extra</button>
         </div>
 
         <div class="gr-result-card" id="grResultCard">
@@ -312,13 +335,14 @@ function initGradeScreen() {
 
   // Init
   LETTER_SCALE = grLoadScale();
-  document.getElementById('grQuizCard').style.display = 'none';
-  document.getElementById('grBonusGradeRow').style.display = 'none';
+
   grRenderMidterms();
   grRenderQuizzes();
+  grRenderLabs();
   grCheckWeights();
   grLoadActiveTemplate();
   if (getActiveTemplateId()) grRenderCalcFromTemplate();
+  _grAttachSwipe();
 }
 
 // ── sub-screen nav ────────────────────────────────────────────
@@ -356,6 +380,7 @@ function grToggleRow(weightRowId, targetId) {
     if (inp) inp.value = 0;
     if (targetId === 'grMidtermCard') { grMidterms = [null, null]; grRenderMidterms(); }
     else if (targetId === 'grQuizCard') { grQuizEntries = [null]; grRenderQuizzes(); }
+    else if (targetId === 'grLabCard') { grLabEntries = [null]; grRenderLabs(); }
     else { const gi = target.querySelector('input'); if (gi) gi.value = ''; }
   }
   grCheckWeights(); grCalc();
@@ -399,7 +424,7 @@ function grRenderQuizzes() {
          value="${val !== null && val !== undefined ? val : ''}"
          oninput="grQuizEntries[${i}]=this.value===''?null:parseFloat(this.value);grCalc()">
        <span class="gr-field-unit">/100</span>
-       ${grQuizEntries.length > 1
+       ${!getActiveTemplateId() && grQuizEntries.length > 1
          ? `<button class="gr-remove-btn" onclick="grRemoveQuiz(${i})">×</button>`
          : '<span style="width:20px;"></span>'}`;
     list.appendChild(row);
@@ -408,6 +433,30 @@ function grRenderQuizzes() {
 
 function grAddQuiz() { grQuizEntries.push(null); grRenderQuizzes(); grCalc(); }
 function grRemoveQuiz(i) { grQuizEntries.splice(i, 1); grRenderQuizzes(); grCalc(); }
+
+// ── labs ─────────────────────────────────────────────────────────────
+function grRenderLabs() {
+  const list = document.getElementById('grLabList');
+  if (!list) return;
+  list.innerHTML = '';
+  grLabEntries.forEach((val, i) => {
+    const row = document.createElement('div');
+    row.className = 'gr-mt-row';
+    row.innerHTML =
+      `<span class="gr-mt-label">Lab ${i + 1}</span>
+       <input class="gr-field-input" type="number" placeholder="—" min="0" max="100"
+         value="${val !== null && val !== undefined ? val : ''}"
+         oninput="grLabEntries[${i}]=this.value===''?null:parseFloat(this.value);grCalc()">
+       <span class="gr-field-unit">/100</span>
+       ${!getActiveTemplateId() && grLabEntries.length > 1
+         ? `<button class="gr-remove-btn" onclick="grRemoveLab(${i})">×</button>`
+         : '<span style="width:20px;"></span>'}`;
+    list.appendChild(row);
+  });
+}
+
+function grAddLab()      { grLabEntries.push(null); grRenderLabs(); grCalc(); }
+function grRemoveLab(i)  { grLabEntries.splice(i, 1); grRenderLabs(); grCalc(); }
 
 // ── weights check ─────────────────────────────────────────────
 function grGv(id) {
@@ -420,6 +469,7 @@ function grCheckWeights() {
   if (document.getElementById('grMtWeightRow')?.style.display !== 'none') total += grGv('grMtPct');
   if (document.getElementById('grFinalWeightRow')?.style.display !== 'none') total += grGv('grFinPct');
   if (document.getElementById('grQuizWeightRow')?.style.display !== 'none') total += grGv('grQuizPct');
+  if (document.getElementById('grLabWeightRow')?.style.display !== 'none') total += grGv('grLabPct');
   if (document.getElementById('grBonusWeightRow')?.style.display !== 'none') total += grGv('grBonusPct');
   total += grCurrentExtraDefs.reduce((s, ex) => s + (ex.weight || 0), 0);
   const el = document.getElementById('grWeightStatus');
@@ -438,10 +488,14 @@ function grCalc() {
   const validQ = grQuizEntries.filter(v => v !== null && v !== '');
   const quizzesAvg = validQ.length > 0 ? validQ.reduce((s, v) => s + parseFloat(v), 0) / validQ.length : null;
 
+  const validL = grLabEntries.filter(v => v !== null && v !== '');
+  const labAvg = validL.length > 0 ? validL.reduce((s, v) => s + parseFloat(v), 0) / validL.length : null;
+
   const weights = {
     midterm:      document.getElementById('grMtWeightRow')?.style.display !== 'none' ? grGv('grMtPct') : 0,
     final:        document.getElementById('grFinalWeightRow')?.style.display !== 'none' ? grGv('grFinPct') : 0,
     quizzes:      document.getElementById('grQuizWeightRow')?.style.display !== 'none' ? grGv('grQuizPct') : 0,
+    lab:          document.getElementById('grLabWeightRow')?.style.display !== 'none' ? grGv('grLabPct') : 0,
     bonusQuizzes: document.getElementById('grBonusWeightRow')?.style.display !== 'none' ? grGv('grBonusPct') : 0,
   };
 
@@ -453,6 +507,7 @@ function grCalc() {
     midterms: document.getElementById('grMidtermCard')?.style.display !== 'none' ? grMidterms : [],
     final:    document.getElementById('grFinalGradeRow')?.style.display !== 'none' ? (finVal === '' ? null : parseFloat(finVal)) : null,
     quizzes:  document.getElementById('grQuizCard')?.style.display !== 'none' ? quizzesAvg : null,
+    lab:      document.getElementById('grLabCard')?.style.display !== 'none' ? labAvg : null,
     bonusQuiz:document.getElementById('grBonusGradeRow')?.style.display !== 'none' ? (bonVal === '' ? null : parseFloat(bonVal)) : null,
     extraGrades,
     extraWeights: grCurrentExtraDefs.map(ex => ex.weight),
@@ -460,7 +515,7 @@ function grCalc() {
   };
 
   const hasAny = (state.midterms.length && state.midterms.some(v => v !== null)) ||
-                 state.final !== null || state.quizzes !== null || state.bonusQuiz !== null ||
+                 state.final !== null || state.quizzes !== null || state.lab !== null || state.bonusQuiz !== null ||
                  extraGrades.some(v => v !== null);
 
   const card = document.getElementById('grResultCard');
@@ -477,29 +532,80 @@ function grCalc() {
 }
 
 // ── extra grades ──────────────────────────────────────────────
-function grRenderExtraGradesFromTemplate(tpl) {
+
+// grCurrentExtraDefs: [{ label, weight, grade }]
+// fromTemplate=true locks labels/weights and hides add/remove buttons
+
+function grRenderExtras(savedGrades, fromTemplate) {
   const container = document.getElementById('grExtraGradesContainer');
   if (!container) return;
   container.innerHTML = '';
-  grCurrentExtraDefs = tpl.extras || [];
-  const savedGrades = (tpl.grades && tpl.grades.extraGrades) || [];
+
+  const addBtn = document.getElementById('grAddExtraBtn');
+  if (addBtn) addBtn.style.display = fromTemplate ? 'none' : '';
+
   grCurrentExtraDefs.forEach((ex, idx) => {
     const row = document.createElement('div');
     row.className = 'gr-field-row gr-extra-grade-row';
-    row.innerHTML = `
-      <span class="gr-field-label">${grEscHtml(ex.label)} (${ex.weight}%)</span>
-      <input class="gr-field-input gr-extra-grade-input" type="number" placeholder="—" min="0" max="100"
-        value="${savedGrades[idx] !== undefined && savedGrades[idx] !== null ? savedGrades[idx] : ''}"
-        oninput="grCalc()">
-      <span class="gr-field-unit">/${ex.weight} pts</span>`;
+    const savedVal = savedGrades && savedGrades[idx] !== undefined && savedGrades[idx] !== null
+      ? savedGrades[idx] : (ex.grade !== undefined ? ex.grade : '');
+
+    if (fromTemplate) {
+      // Template extras: label+weight locked, no remove button
+      row.innerHTML =
+        `<span class="gr-field-label">${grEscHtml(ex.label)} <span style="color:var(--muted);font-size:10px;">(${ex.weight}%)</span></span>
+         <input class="gr-field-input gr-extra-grade-input" type="number" placeholder="—" min="0" max="100"
+           value="${savedVal}" oninput="grCalc()">
+         <span class="gr-field-unit">/100</span>`;
+    } else {
+      // User-added extras: editable name+weight, removable
+      row.innerHTML =
+        `<span class="gr-field-label" style="display:flex;flex-direction:column;gap:3px;flex:1;">
+           <input class="gr-inline-input gr-extra-label-input" type="text" placeholder="Name" maxlength="24"
+             value="${grEscHtml(ex.label)}"
+             oninput="grCurrentExtraDefs[${idx}].label=this.value;grCheckWeights();">
+           <span style="display:flex;align-items:center;gap:4px;">
+             <input class="gr-inline-input gr-extra-weight-input" type="number" placeholder="0" min="0" max="100"
+               value="${ex.weight || ''}"
+               style="width:42px;"
+               oninput="grCurrentExtraDefs[${idx}].weight=parseFloat(this.value)||0;grCheckWeights();grCalc();">
+             <span style="font-size:10px;color:var(--muted);">%</span>
+           </span>
+         </span>
+         <input class="gr-field-input gr-extra-grade-input" type="number" placeholder="—" min="0" max="100"
+           value="${savedVal}" oninput="grCurrentExtraDefs[${idx}].grade=this.value===''?null:parseFloat(this.value);grCalc()">
+         <span class="gr-field-unit">/100</span>
+         <button class="gr-remove-btn" onclick="grRemoveExtra(${idx})">×</button>`;
+    }
     container.appendChild(row);
   });
+
+  grCheckWeights();
+}
+
+function grRenderExtraGradesFromTemplate(tpl) {
+  grCurrentExtraDefs = (tpl.extras || []).map(ex => ({ ...ex }));
+  const savedGrades = (tpl.grades && tpl.grades.extraGrades) || [];
+  grRenderExtras(savedGrades, true);
 }
 
 function grClearExtraGrades() {
   const c = document.getElementById('grExtraGradesContainer');
   if (c) c.innerHTML = '';
   grCurrentExtraDefs = [];
+  const addBtn = document.getElementById('grAddExtraBtn');
+  if (addBtn) addBtn.style.display = '';
+}
+
+function grAddUserExtra() {
+  grCurrentExtraDefs.push({ label: '', weight: 0, grade: null });
+  grRenderExtras(null, false);
+}
+
+function grRemoveExtra(i) {
+  grCurrentExtraDefs.splice(i, 1);
+  grRenderExtras(null, false);
+  grCalc();
 }
 
 // ── active template bar ───────────────────────────────────────
@@ -522,8 +628,10 @@ function grLoadActiveTemplate() {
     document.getElementById('grBonusWeightRow').style.display = '';
     document.getElementById('grMidtermCard').style.display    = '';
     document.getElementById('grFinalGradeRow').style.display  = '';
-    document.getElementById('grQuizCard').style.display       = 'none';
-    document.getElementById('grBonusGradeRow').style.display  = 'none';
+    document.getElementById('grQuizCard').style.display       = '';
+    document.getElementById('grLabWeightRow').style.display   = 'none';
+    document.getElementById('grLabCard').style.display        = 'none';
+    document.getElementById('grBonusGradeRow').style.display  = '';
     grCheckWeights(); grCalc(); return;
   }
   const tpl = getTemplateById(id);
@@ -548,20 +656,24 @@ function grRenderCalcFromTemplate() {
   const hasMidterm = tpl.hasMidterm !== false;
   const hasFinal   = tpl.hasFinal !== false;
   const hasQuizzes = tpl.hasQuizzes || false;
+  const hasLab     = tpl.hasLab || false;
   const hasBonus   = tpl.hasBonusQuiz || false;
 
   document.getElementById('grMtWeightRow').style.display    = hasMidterm ? '' : 'none';
   document.getElementById('grFinalWeightRow').style.display = hasFinal   ? '' : 'none';
   document.getElementById('grQuizWeightRow').style.display  = hasQuizzes ? '' : 'none';
+  document.getElementById('grLabWeightRow').style.display   = hasLab     ? '' : 'none';
   document.getElementById('grBonusWeightRow').style.display = hasBonus   ? '' : 'none';
   document.getElementById('grMidtermCard').style.display    = hasMidterm ? '' : 'none';
   document.getElementById('grFinalGradeRow').style.display  = hasFinal   ? '' : 'none';
   document.getElementById('grQuizCard').style.display       = hasQuizzes ? '' : 'none';
+  document.getElementById('grLabCard').style.display        = hasLab     ? '' : 'none';
   document.getElementById('grBonusGradeRow').style.display  = hasBonus   ? '' : 'none';
 
   document.getElementById('grMtPct').value    = tpl.weights.midterm || 0;
   document.getElementById('grFinPct').value   = tpl.weights.final || 0;
   document.getElementById('grQuizPct').value  = tpl.weights.quizzes || 0;
+  document.getElementById('grLabPct').value   = tpl.weights.lab || 0;
   document.getElementById('grBonusPct').value = tpl.weights.bonusQuizzes || 0;
 
   grMidterms = hasMidterm ? Array(tpl.midtermCount || 1).fill(null) : [];
@@ -571,6 +683,13 @@ function grRenderCalcFromTemplate() {
     grQuizEntries = (sq && sq.length) ? sq.map(v => v !== undefined ? v : null) : [null];
   } else {
     grQuizEntries = [null];
+  }
+
+  if (hasLab) {
+    const sl = tpl.grades && tpl.grades.labEntries;
+    grLabEntries = (sl && sl.length) ? sl.map(v => v !== undefined ? v : null) : [null];
+  } else {
+    grLabEntries = [null];
   }
 
   if (tpl.grades) {
@@ -584,6 +703,7 @@ function grRenderCalcFromTemplate() {
 
   grRenderMidterms();
   grRenderQuizzes();
+  grRenderLabs();
   grCheckWeights();
   grCalc();
   grLoadActiveTemplate();
@@ -603,13 +723,14 @@ function grUpdateActiveTemplate() {
     bonusQuiz:   document.getElementById('grBonusGrade').value === '' ? null : parseFloat(document.getElementById('grBonusGrade').value),
     extraGrades,
   };
-  const weights = { midterm: grGv('grMtPct'), final: grGv('grFinPct'), quizzes: grGv('grQuizPct'), bonusQuizzes: grGv('grBonusPct') };
+  const weights = { midterm: grGv('grMtPct'), final: grGv('grFinPct'), quizzes: grGv('grQuizPct'), lab: grGv('grLabPct'), bonusQuizzes: grGv('grBonusPct') };
   updateTemplate(id, {
     weights,
     midtermCount: grMidterms.length,
     hasMidterm:   document.getElementById('grMidtermCard').style.display !== 'none',
     hasFinal:     document.getElementById('grFinalGradeRow').style.display !== 'none',
     hasQuizzes:   document.getElementById('grQuizCard').style.display !== 'none',
+    hasLab:       document.getElementById('grLabCard').style.display !== 'none',
     hasBonusQuiz: document.getElementById('grBonusWeightRow').style.display !== 'none',
     grades,
     extras: grCurrentExtraDefs,
@@ -634,16 +755,18 @@ function grConfirmSaveTemplate() {
   });
   const tpl = saveTemplate({
     name,
-    weights:      { midterm: grGv('grMtPct'), final: grGv('grFinPct'), quizzes: grGv('grQuizPct'), bonusQuizzes: grGv('grBonusPct') },
+    weights:      { midterm: grGv('grMtPct'), final: grGv('grFinPct'), quizzes: grGv('grQuizPct'), lab: grGv('grLabPct'), bonusQuizzes: grGv('grBonusPct') },
     midtermCount: grMidterms.length,
     hasMidterm:   document.getElementById('grMidtermCard').style.display !== 'none',
     hasFinal:     document.getElementById('grFinalGradeRow').style.display !== 'none',
     hasQuizzes:   document.getElementById('grQuizCard').style.display !== 'none',
+    hasLab:       document.getElementById('grLabCard').style.display !== 'none',
     hasBonusQuiz: document.getElementById('grBonusWeightRow').style.display !== 'none',
     grades: {
       midterms:    [...grMidterms],
       final:       document.getElementById('grFinGrade').value   === '' ? null : parseFloat(document.getElementById('grFinGrade').value),
       quizEntries: [...grQuizEntries],
+      labEntries:  [...grLabEntries],
       bonusQuiz:   document.getElementById('grBonusGrade').value === '' ? null : parseFloat(document.getElementById('grBonusGrade').value),
       extraGrades,
     },
@@ -940,3 +1063,50 @@ function grConfirmSaveToCourse(course, gradeCode, dataKey, presetCount) {
 
   grShowToast(`${gradeCode} saved to ${course.name.split('·')[0].trim()} ✓`);
 }
+
+// ── swipe between sub-tabs ────────────────────────────────────
+(function(){
+  const GR_TABS = ['calc', 'templates', 'scale'];
+  let tx0 = 0, ty0 = 0, swiping = false;
+
+  function grCurrentTabIdx() {
+    return GR_TABS.indexOf(_grCurrentScreen);
+  }
+
+  function grSwipeTo(idx) {
+    if (idx < 0 || idx >= GR_TABS.length) return;
+    grShowScreen(GR_TABS[idx]);
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    // area may not exist yet — attach after initGradeScreen builds it
+  });
+
+  // Called after initGradeScreen injects the DOM
+  window._grAttachSwipe = function() {
+    const area = document.getElementById('gradeScreenScroll');
+    if (!area || area._grSwipeAttached) return;
+    area._grSwipeAttached = true;
+
+    area.addEventListener('touchstart', e => {
+      tx0 = e.touches[0].clientX;
+      ty0 = e.touches[0].clientY;
+      swiping = true;
+    }, { passive: true });
+
+    area.addEventListener('touchmove', e => {
+      if (!swiping) return;
+      if (Math.abs(e.touches[0].clientX - tx0) > Math.abs(e.touches[0].clientY - ty0) * 1.5
+          && Math.abs(e.touches[0].clientX - tx0) > 30) e.preventDefault();
+    }, { passive: false });
+
+    area.addEventListener('touchend', e => {
+      if (!swiping) return; swiping = false;
+      const dx = e.changedTouches[0].clientX - tx0;
+      const dy = e.changedTouches[0].clientY - ty0;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        grSwipeTo(dx < 0 ? grCurrentTabIdx() + 1 : grCurrentTabIdx() - 1);
+      }
+    }, { passive: true });
+  };
+})();

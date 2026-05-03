@@ -317,9 +317,9 @@
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 300;
   align-items: center;
   justify-content: center;
@@ -328,13 +328,14 @@
 #grSaveModal.open, #grDeleteModal.open, #grRenameModal.open, #grSaveCourseModal.open { display: flex; }
 
 .gr-modal {
-  background: var(--card);
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 22px 20px 18px;
+  border-radius: 16px;
+  padding: 28px 24px 22px;
   width: 100%;
   max-width: 380px;
   font-family: 'DM Mono', monospace;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.45);
 }
 .gr-modal h2 { font-size: 14px; color: var(--text); font-weight: 500; margin-bottom: 6px; font-family: 'DM Mono', monospace; }
 .gr-modal p  { font-size: 11px; color: var(--sub); margin-bottom: 14px; line-height: 1.6; font-family: 'DM Mono', monospace; }
@@ -342,23 +343,16 @@
   width: 100%;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--text);
   font-family: 'DM Mono', monospace;
   font-size: 13px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   outline: none;
   margin-bottom: 14px;
 }
 .gr-modal input[type=text]:focus { border-color: var(--accent2); }
 .gr-modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
-
-body.light #grSaveModal,
-body.light #grDeleteModal,
-body.light #grRenameModal,
-body.light #grSaveCourseModal {
-  background: rgba(200,200,190,0.55);
-}
 
 /* modal buttons — unscoped so they work outside #gradeScreen */
 .gr-modal-btns .gr-btn-ghost {
@@ -368,7 +362,7 @@ body.light #grSaveCourseModal {
   color: var(--sub);
   font-family: 'DM Mono', monospace;
   font-size: 11px;
-  padding: 7px 16px;
+  padding: 9px 20px;
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s;
 }
@@ -382,7 +376,7 @@ body.light #grSaveCourseModal {
   font-family: 'DM Mono', monospace;
   font-size: 11px;
   letter-spacing: 0.08em;
-  padding: 7px 16px;
+  padding: 9px 20px;
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -395,7 +389,7 @@ body.light #grSaveCourseModal {
   color: var(--danger);
   font-family: 'DM Mono', monospace;
   font-size: 11px;
-  padding: 7px 16px;
+  padding: 9px 20px;
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -445,10 +439,53 @@ body.light #grSaveCourseModal {
 .gr-course-pick-btn .gr-cpb-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gr-course-pick-btn .gr-cpb-cr   { font-size: 10px; color: var(--muted); flex-shrink: 0; }
 
-body.light .gr-modal {
+body.light #grToast {
+  background: #ffffff;
   border: 2px solid #1a1a1a;
+  color: #1a1a1a;
 }
 
-body.light .gr-course-pick-btn {
+body.light .gr-modal-btns .gr-btn-danger {
+  border: 2px solid #c04040;
+  color: #c04040;
+}
+
+body.light .gr-modal-btns .gr-btn-ghost {
   border: 2px solid #1a1a1a;
+  color: #1a1a1a;
+}
+
+body.light .gr-modal-btns .gr-btn-accent {
+  border: 2px solid #5a7a1a;
+  color: #5a7a1a;
+}
+
+body.light #gradeScreen .gr-field-input {
+  border: 1.5px solid #1a1a1a;
+  color: #1a1a1a;
+  background: #ffffff;
+}
+
+body.light #gradeScreen .gr-inline-input {
+  border: 1.5px solid #1a1a1a;
+  color: #1a1a1a;
+  background: #ffffff;
+}
+
+body.light #gradeScreen .gr-field-label,
+body.light #gradeScreen .gr-mt-label {
+  color: #1a1a1a;
+}
+
+body.light #gradeScreen .gr-field-unit {
+  color: #555;
+}
+
+body.light #gradeScreen .gr-add-btn {
+  border: 1.5px dashed #1a1a1a;
+  color: #1a1a1a;
+}
+
+body.light #gradeScreen .gr-remove-btn {
+  color: #c04040;
 }

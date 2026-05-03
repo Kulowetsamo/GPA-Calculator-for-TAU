@@ -43,7 +43,7 @@
 
 const _RAW_BUILTINS = [
   {
-    name: 'English — Speaking + Attendance',
+    name: 'English 102',
     weights: { midterm: 0, final: 0, quizzes: 0, bonusQuizzes: 0 },
     midtermCount: 0,
     hasQuizzes: false,
@@ -59,6 +59,23 @@ const _RAW_BUILTINS = [
       { label: 'Quiz', weight: 5 },
       { label: 'Attendance', weight: 10 },
       { label: 'End-of-course Interview', weight: 10 },
+    ],
+  },
+  {
+    name: 'English 101',
+    weights: { midterm: 0, final: 0, quizzes: 0, bonusQuizzes: 0 },
+    midtermCount: 0,
+    hasQuizzes: false,
+    hasBonusQuiz: false,
+    hasMidterm: false,
+    hasFinal: false,
+    extras: [
+      { label: 'Writing 1', weight: 15 },
+      { label: 'Writing 2', weight: 20 },
+      { label: 'Speaking', weight: 20 },
+      { label: 'Quiz', weight: 15 },
+      { label: 'Participation', weight: 10 },
+      { label: 'Final Exam', weight: 20 },
     ],
   },
   {
@@ -80,11 +97,11 @@ const _RAW_BUILTINS = [
     hasFinal: true,
   },
   {
-    name: '2 MT · Quizzes · Bonus · 1 Final',
-    weights: { midterm: 35, final: 45, quizzes: 10, bonusQuizzes: 10 },
+    name: 'Phsyics 2',
+    weights: { midterm: 60, final: 40, quizzes: 0, bonusQuizzes: 0 },
     midtermCount: 2,
-    hasQuizzes: true,
-    hasBonusQuiz: true,
+    hasQuizzes: false,
+    hasBonusQuiz: false,
     hasMidterm: true,
     hasFinal: true,
   },
@@ -96,19 +113,6 @@ const _RAW_BUILTINS = [
     hasBonusQuiz: false,
     hasMidterm: true,
     hasFinal: true,
-  },
-  {
-    name: 'English · Speaking · Attendance',
-    weights: { midterm: 30, final: 50, quizzes: 0, bonusQuizzes: 0 },
-    midtermCount: 2,
-    hasQuizzes: false,
-    hasBonusQuiz: false,
-    hasMidterm: true,
-    hasFinal: true,
-    extras: [
-      { label: 'Speaking',   weight: 15 },
-      { label: 'Attendance', weight: 5  },
-    ],
   },
 
   // ── ADD YOUR TEMPLATES BELOW THIS LINE ────────────────────────
