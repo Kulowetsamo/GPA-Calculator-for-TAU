@@ -57,27 +57,34 @@ function computeGrade(state) {
   const extraTotal = extraWeights.reduce((s, v) => s + (parseFloat(v) || 0), 0);
   const weightTotal = w.midterm + w.final + w.quizzes + w.lab + w.bonusQuizzes + extraTotal;
 
+  // Lab carves out its own share; all other components scale down by (100 - labW) / 100
+  const labW  = w.lab;
+  const scale = labW > 0 ? (100 - labW) / 100 : 1;
+
   let score = 0;
   const breakdown = [];
 
   const validMts = midterms.filter(v => v !== null && v !== '');
   if (validMts.length > 0 && w.midterm > 0) {
-    const avg     = validMts.reduce((s, v) => s + parseFloat(v), 0) / validMts.length;
-    const contrib = avg * w.midterm / 100;
+    const avg   = validMts.reduce((s, v) => s + parseFloat(v), 0) / validMts.length;
+    const effW  = w.midterm * scale;
+    const contrib = avg * effW / 100;
     score += contrib;
-    breakdown.push({ label: `Midterm avg (${avg.toFixed(1)}) × ${w.midterm}%`, contribution: contrib });
+    breakdown.push({ label: `Midterm avg (${avg.toFixed(1)}) × ${effW.toFixed(1)}%`, contribution: contrib });
   }
 
   if (final !== null && final !== '' && w.final > 0) {
-    const contrib = parseFloat(final) * w.final / 100;
+    const effW  = w.final * scale;
+    const contrib = parseFloat(final) * effW / 100;
     score += contrib;
-    breakdown.push({ label: `Final × ${w.final}%`, contribution: contrib });
+    breakdown.push({ label: `Final × ${effW.toFixed(1)}%`, contribution: contrib });
   }
 
   if (quizzes !== null && quizzes !== '' && w.quizzes > 0) {
-    const contrib = parseFloat(quizzes) * w.quizzes / 100;
+    const effW  = w.quizzes * scale;
+    const contrib = parseFloat(quizzes) * effW / 100;
     score += contrib;
-    breakdown.push({ label: `Quizzes × ${w.quizzes}%`, contribution: contrib });
+    breakdown.push({ label: `Quizzes × ${effW.toFixed(1)}%`, contribution: contrib });
   }
 
   if (lab !== null && lab !== '' && w.lab > 0) {
@@ -87,16 +94,17 @@ function computeGrade(state) {
   }
 
   if (bonusQuiz !== null && bonusQuiz !== '' && w.bonusQuizzes > 0) {
-    const contrib = parseFloat(bonusQuiz) * w.bonusQuizzes / 100;
+    const effW  = w.bonusQuizzes * scale;
+    const contrib = parseFloat(bonusQuiz) * effW / 100;
     score += contrib;
-    breakdown.push({ label: `Bonus quizzes × ${w.bonusQuizzes}%`, contribution: contrib });
+    breakdown.push({ label: `Bonus quizzes × ${effW.toFixed(1)}%`, contribution: contrib });
   }
 
   extraGrades.forEach((grade, i) => {
     const wt    = parseFloat(extraWeights[i]) || 0;
     const label = extraLabels[i] || `Extra ${i + 1}`;
     if (grade !== null && grade !== '' && wt > 0) {
-      const contrib = parseFloat(grade) * wt / weightTotal;
+      const contrib = parseFloat(grade);
       score += contrib;
       breakdown.push({ label: `${label} × ${wt}%`, contribution: contrib });
     }
@@ -222,12 +230,12 @@ function initGradeScreen() {
           <div class="gr-field-row" id="grFinalGradeRow">
             <span class="gr-field-label">Final exam</span>
             <input class="gr-field-input" type="number" id="grFinGrade" placeholder="—" min="0" max="100" oninput="grCalc()">
-            <span class="gr-field-unit">/100</span>
+            <span class="gr-field-unit" id="grFinWeightDisplay">%</span>
           </div>
           <div class="gr-field-row" id="grBonusGradeRow">
             <span class="gr-field-label">Bonus quizzes (avg)</span>
             <input class="gr-field-input" type="number" id="grBonusGrade" placeholder="—" min="0" max="100" oninput="grCalc()">
-            <span class="gr-field-unit">/100</span>
+            <span class="gr-field-unit" id="grBonusWeightDisplay">%</span>
           </div>
           <div id="grExtraGradesContainer"></div>
           <button class="gr-add-btn" id="grAddExtraBtn" style="margin-top:8px;" onclick="grAddUserExtra()">+ add extra</button>
@@ -236,7 +244,7 @@ function initGradeScreen() {
         <div class="gr-result-card" id="grResultCard">
           <div class="gr-result-score" id="grResScore">—</div>
           <div class="gr-result-letter" id="grResLetter"></div>
-          <div class="gr-result-divider"></div>
+          <div class="gr-result-divider"></div> 
           <div id="grResBreakdown"></div>
           <div class="gr-result-divider" style="margin-top:12px;"></div>
           <button class="gr-btn-accent gr-btn-full" style="margin-top:12px;" onclick="grOpenSaveCourseModal()">Save to Course</button>
@@ -335,6 +343,7 @@ function initGradeScreen() {
 
   // Init
   LETTER_SCALE = grLoadScale();
+  grUpdateWeightLabels();
 
   grRenderMidterms();
   grRenderQuizzes();
@@ -465,17 +474,59 @@ function grGv(id) {
 }
 
 function grCheckWeights() {
+  const labW  = document.getElementById('grLabWeightRow')?.style.display !== 'none' ? grGv('grLabPct') : 0;
+  const scale = labW > 0 ? (100 - labW) / 100 : 1;
+
   let total = 0;
-  if (document.getElementById('grMtWeightRow')?.style.display !== 'none') total += grGv('grMtPct');
-  if (document.getElementById('grFinalWeightRow')?.style.display !== 'none') total += grGv('grFinPct');
-  if (document.getElementById('grQuizWeightRow')?.style.display !== 'none') total += grGv('grQuizPct');
-  if (document.getElementById('grLabWeightRow')?.style.display !== 'none') total += grGv('grLabPct');
-  if (document.getElementById('grBonusWeightRow')?.style.display !== 'none') total += grGv('grBonusPct');
+  if (document.getElementById('grMtWeightRow')?.style.display !== 'none') total += grGv('grMtPct') * scale;
+  if (document.getElementById('grFinalWeightRow')?.style.display !== 'none') total += grGv('grFinPct') * scale;
+  if (document.getElementById('grQuizWeightRow')?.style.display !== 'none') total += grGv('grQuizPct') * scale;
+  if (document.getElementById('grLabWeightRow')?.style.display !== 'none') total += labW;
+  if (document.getElementById('grBonusWeightRow')?.style.display !== 'none') total += grGv('grBonusPct') * scale;
   total += grCurrentExtraDefs.reduce((s, ex) => s + (ex.weight || 0), 0);
+
   const el = document.getElementById('grWeightStatus');
   if (!el) return;
   el.className = 'gr-weight-status ok';
-  el.textContent = `Weights sum to ${total}%`;
+  el.textContent = `Weights sum to ${total.toFixed(1)}%`;
+
+  grUpdateWeightLabels();
+}
+
+// ── update weight labels for Final and Bonus rows ─────────────
+function grUpdateWeightLabels() {
+  const finEl = document.getElementById('grFinWeightDisplay');
+  const bonEl = document.getElementById('grBonusWeightDisplay');
+
+  const labW  = document.getElementById('grLabWeightRow')?.style.display !== 'none' ? grGv('grLabPct') : 0;
+  const scale = labW > 0 ? (100 - labW) / 100 : 1;
+
+  if (finEl) {
+    const w = parseFloat(document.getElementById('grFinPct').value) || 0;
+    finEl.textContent = labW > 0 ? `${w}% → ${(w * scale).toFixed(1)}%` : w + '%';
+  }
+  if (bonEl) {
+    const w = parseFloat(document.getElementById('grBonusPct').value) || 0;
+    bonEl.textContent = labW > 0 ? `${w}% → ${(w * scale).toFixed(1)}%` : w + '%';
+  }
+
+  // Annotate the weight input units in the weights card
+  const annotations = [
+    ['grMtWeightRow',    'grMtPct',   'grMtWeightUnit'],
+    ['grFinalWeightRow', 'grFinPct',  'grFinWeightUnit'],
+    ['grQuizWeightRow',  'grQuizPct', 'grQuizWeightUnit'],
+    ['grBonusWeightRow', 'grBonusPct','grBonusWeightUnit'],
+  ];
+
+  annotations.forEach(([rowId, inputId, unitId]) => {
+    const row = document.getElementById(rowId);
+    if (!row || row.style.display === 'none') return;
+    let unit = row.querySelector('.gr-field-unit');
+    if (!unit) return;
+    unit.id = unitId;
+    const w = parseFloat(document.getElementById(inputId)?.value) || 0;
+    unit.textContent = labW > 0 ? `% → ${(w * scale).toFixed(1)}%` : '%';
+  });
 }
 
 // ── compute & display ─────────────────────────────────────────
@@ -551,12 +602,13 @@ function grRenderExtras(savedGrades, fromTemplate) {
       ? savedGrades[idx] : (ex.grade !== undefined ? ex.grade : '');
 
     if (fromTemplate) {
-      // Template extras: label+weight locked, no remove button
+      // Template extras: label+weight locked, unit shows "X pts" and max = weight
+      const maxPts = ex.weight || 100;
       row.innerHTML =
         `<span class="gr-field-label">${grEscHtml(ex.label)} <span style="color:var(--muted);font-size:10px;">(${ex.weight}%)</span></span>
-         <input class="gr-field-input gr-extra-grade-input" type="number" placeholder="—" min="0" max="100"
+         <input class="gr-field-input gr-extra-grade-input" type="number" placeholder="—" min="0" max="${maxPts}"
            value="${savedVal}" oninput="grCalc()">
-         <span class="gr-field-unit">/100</span>`;
+         <span class="gr-field-unit">${maxPts} pts</span>`;
     } else {
       // User-added extras: editable name+weight, removable
       row.innerHTML =
@@ -907,7 +959,6 @@ function grRenderScaleScreen() {
        style="opacity:0.35;cursor:not-allowed;">
      <span class="gr-field-unit">pts</span>`;
   container.appendChild(ffRow);
-
 }
 
 function grScaleInputChanged(input) {
@@ -940,7 +991,6 @@ function grScaleInputChanged(input) {
 
   grCalc(); // re-run result with new scale
 }
-
 
 function grResetScaleUI() {
   LETTER_SCALE = grResetScale();
@@ -1077,10 +1127,6 @@ function grConfirmSaveToCourse(course, gradeCode, dataKey, presetCount) {
     if (idx < 0 || idx >= GR_TABS.length) return;
     grShowScreen(GR_TABS[idx]);
   }
-
-  document.addEventListener('DOMContentLoaded', function() {
-    // area may not exist yet — attach after initGradeScreen builds it
-  });
 
   // Called after initGradeScreen injects the DOM
   window._grAttachSwipe = function() {

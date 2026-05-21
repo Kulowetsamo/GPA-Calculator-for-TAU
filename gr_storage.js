@@ -28,7 +28,7 @@
 // ── EXAMPLE ──────────────────────────────────────────────────
 //   {
 //     name: 'English — Speaking + Attendance',
-//     weights: { midterm: 30, final: 50, quizzes: 0, bonusQuizzes: 0 },
+//     weights: { midterm: 30, final: 50, quizzes: 0, lab: 0, bonusQuizzes: 0 },
 //     midtermCount: 2,
 //     hasQuizzes: false,
 //     hasBonusQuiz: false,
@@ -43,13 +43,14 @@
 
 const _RAW_BUILTINS = [
   {
-    name: 'English 102',
-    weights: { midterm: 0, final: 0, quizzes: 0, bonusQuizzes: 0 },
+    name: 'English — Speaking + Attendance',
+    weights: { midterm: 0, final: 0, quizzes: 0, lab: 0, bonusQuizzes: 0 },
     midtermCount: 0,
     hasQuizzes: false,
     hasBonusQuiz: false,
     hasMidterm: false,
     hasFinal: false,
+    hasLab: false,
     extras: [
       { label: 'Midterm 1', weight: 15 },
       { label: 'Midterm 2', weight: 20 },
@@ -62,69 +63,55 @@ const _RAW_BUILTINS = [
     ],
   },
   {
-    name: 'English 101',
-    weights: { midterm: 0, final: 0, quizzes: 0, bonusQuizzes: 0 },
-    midtermCount: 0,
+    name: '2 MT · 1 Final',
+    weights: { midterm: 60, final: 40, quizzes: 0, lab: 0, bonusQuizzes: 10 },
+    midtermCount: 2,
     hasQuizzes: false,
     hasBonusQuiz: false,
-    hasMidterm: false,
-    hasFinal: false,
-    extras: [
-      { label: 'Writing 1', weight: 15 },
-      { label: 'Writing 2', weight: 20 },
-      { label: 'Speaking', weight: 20 },
-      { label: 'Quiz', weight: 15 },
-      { label: 'Participation', weight: 10 },
-      { label: 'Final Exam', weight: 20 },
-    ],
+    hasMidterm: true,
+    hasFinal: true,
+    hasLab: false,
   },
   {
     name: '2 MT · 1 Final · 10% Bonus Quizzes',
-    weights: { midterm: 60, final: 40, quizzes: 0, bonusQuizzes: 10 },
+    weights: { midterm: 60, final: 40, quizzes: 10, lab: 0, bonusQuizzes: 10 },
     midtermCount: 2,
     hasQuizzes: false,
     hasBonusQuiz: true,
     hasMidterm: true,
     hasFinal: true,
+    hasLab: false,
   },
   {
     name: '1 MT · Quizzes · 1 Final',
-    weights: { midterm: 30, final: 50, quizzes: 20, bonusQuizzes: 0 },
+    weights: { midterm: 30, final: 40, quizzes: 30, lab: 0, bonusQuizzes: 0 },
     midtermCount: 1,
     hasQuizzes: true,
     hasBonusQuiz: false,
     hasMidterm: true,
     hasFinal: true,
+    hasLab: false,
   },
   {
-    name: 'Phsyics 2',
-    weights: { midterm: 60, final: 40, quizzes: 0, bonusQuizzes: 0 },
+    name: 'Phsyics II',
+    weights: { midterm: 60, final: 40, quizzes: 0, lab: 10, bonusQuizzes: 0 },
     midtermCount: 2,
     hasQuizzes: false,
     hasBonusQuiz: false,
     hasMidterm: true,
     hasFinal: true,
-  },
-  {
-    name: '3 MT · 1 Final',
-    weights: { midterm: 50, final: 50, quizzes: 0, bonusQuizzes: 0 },
-    midtermCount: 3,
-    hasQuizzes: false,
-    hasBonusQuiz: false,
-    hasMidterm: true,
-    hasFinal: true,
+    hasLab: true,
   },
 
   // ── ADD YOUR TEMPLATES BELOW THIS LINE ────────────────────────
-
-  // ── END OF CUSTOM TEMPLATES ───────────────────────────────────
 ];
 
 // Auto-assign stable IDs
 const BUILTIN_TEMPLATES = _RAW_BUILTINS.map((t, i) => ({
   extras: [],
-  hasMidterm: true,      // defaults for safety
+  hasMidterm: true,
   hasFinal: true,
+  hasLab: false,
   ...t,
   id: '__builtin_' + (i + 1),
   builtin: true,
@@ -148,6 +135,7 @@ function _normalize(tpl) {
     extras: [],
     hasMidterm: true,
     hasFinal: true,
+    hasLab: false,
     ...tpl,
   };
 }
