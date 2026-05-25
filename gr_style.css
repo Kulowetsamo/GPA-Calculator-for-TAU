@@ -151,7 +151,7 @@
 
 #gradeScreen .gr-btn-danger {
   background: none;
-  border: 1px solid rgba(224,128,128,0.3);
+  border: 1px solid rgba(226,24,55,0.3);
   border-radius: 6px;
   color: var(--danger);
   font-family: 'DM Mono', monospace;
@@ -160,7 +160,7 @@
   cursor: pointer;
   transition: background 0.15s;
 }
-#gradeScreen .gr-btn-danger:hover { background: rgba(224,128,128,0.08); }
+#gradeScreen .gr-btn-danger:hover { background: rgba(226,24,55,0.08); }
 
 #gradeScreen .gr-btn-accent {
   background: none;
@@ -174,8 +174,8 @@
   cursor: pointer;
   transition: background 0.15s;
 }
-#gradeScreen .gr-btn-accent:hover  { background: rgba(200,240,96,0.08); }
-#gradeScreen .gr-btn-accent:active { background: rgba(200,240,96,0.15); }
+#gradeScreen .gr-btn-accent:hover  { background: rgba(226,24,55,0.08); }
+#gradeScreen .gr-btn-accent:active { background: rgba(226,24,55,0.15); }
 
 #gradeScreen .gr-add-btn {
   background: none;
@@ -214,14 +214,14 @@
 }
 #gradeScreen .gr-weight-status.ok {
   display: block;
-  background: rgba(200,240,96,0.07);
-  border: 1px solid rgba(200,240,96,0.2);
+  background: rgba(226,24,55,0.07);
+  border: 1px solid rgba(226,24,55,0.2);
   color: var(--accent);
 }
 #gradeScreen .gr-weight-status.warn {
   display: block;
-  background: rgba(224,128,128,0.08);
-  border: 1px solid rgba(224,128,128,0.3);
+  background: rgba(226,24,55,0.08);
+  border: 1px solid rgba(226,24,55,0.3);
   color: var(--danger);
 }
 
@@ -262,7 +262,7 @@
 /* ── active template bar ── */
 #gradeScreen .gr-active-bar {
   background: var(--surface);
-  border: 1px solid rgba(144,144,208,0.25);
+  border: 1px solid rgba(240,120,48,0.25);
   border-radius: 10px;
   padding: 10px 14px;
   display: flex;
@@ -287,7 +287,7 @@
   transition: border-color 0.15s;
 }
 #gradeScreen .gr-tpl-item:hover { border-color: var(--accent2); }
-#gradeScreen .gr-tpl-item.gr-active-tpl { border-color: rgba(200,240,96,0.5); }
+#gradeScreen .gr-tpl-item.gr-active-tpl { border-color: rgba(226,24,55,0.5); }
 #gradeScreen .gr-tpl-item-info { flex: 1; min-width: 0; }
 #gradeScreen .gr-tpl-item-name { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #gradeScreen .gr-tpl-item-meta { font-size: 10px; color: var(--muted); margin-top: 3px; letter-spacing: 0.06em; }
@@ -295,13 +295,13 @@
   font-size: 9px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  background: rgba(144,144,208,0.12);
+  background: rgba(240,120,48,0.12);
   color: var(--accent2);
   border-radius: 4px;
   padding: 2px 7px;
   flex-shrink: 0;
 }
-#gradeScreen .gr-tpl-item-badge.builtin { background: rgba(200,240,96,0.08); color: var(--muted); }
+#gradeScreen .gr-tpl-item-badge.builtin { background: rgba(226,24,55,0.08); color: var(--muted); }
 #gradeScreen .gr-tpl-actions { display: flex; gap: 6px; flex-shrink: 0; }
 #gradeScreen .gr-section-heading {
   font-size: 10px;
@@ -380,11 +380,11 @@
   cursor: pointer;
   transition: background 0.15s;
 }
-.gr-modal-btns .gr-btn-accent:hover { background: rgba(200,240,96,0.08); }
+.gr-modal-btns .gr-btn-accent:hover { background: rgba(226,24,55,0.08); }
 
 .gr-modal-btns .gr-btn-danger {
   background: none;
-  border: 1px solid rgba(224,128,128,0.4);
+  border: 1px solid rgba(226,24,55,0.4);
   border-radius: 6px;
   color: var(--danger);
   font-family: 'DM Mono', monospace;
@@ -393,7 +393,7 @@
   cursor: pointer;
   transition: background 0.15s;
 }
-.gr-modal-btns .gr-btn-danger:hover { background: rgba(224,128,128,0.08); }
+.gr-modal-btns .gr-btn-danger:hover { background: rgba(226,24,55,0.08); }
 
 /* ── grade toast ── */
 #grToast {
@@ -439,6 +439,7 @@
 .gr-course-pick-btn .gr-cpb-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gr-course-pick-btn .gr-cpb-cr   { font-size: 10px; color: var(--muted); flex-shrink: 0; }
 
+/* ── light mode overrides ── */
 body.light #grToast {
   background: #ffffff;
   border: 2px solid #1a1a1a;
@@ -446,8 +447,8 @@ body.light #grToast {
 }
 
 body.light .gr-modal-btns .gr-btn-danger {
-  border: 2px solid #c04040;
-  color: #c04040;
+  border: 2px solid #c01020;
+  color: #c01020;
 }
 
 body.light .gr-modal-btns .gr-btn-ghost {
@@ -456,8 +457,8 @@ body.light .gr-modal-btns .gr-btn-ghost {
 }
 
 body.light .gr-modal-btns .gr-btn-accent {
-  border: 2px solid #5a7a1a;
-  color: #5a7a1a;
+  border: 2px solid #e21837;
+  color: #e21837;
 }
 
 body.light #gradeScreen .gr-field-input {
@@ -487,5 +488,5 @@ body.light #gradeScreen .gr-add-btn {
 }
 
 body.light #gradeScreen .gr-remove-btn {
-  color: #c04040;
+  color: #c01020;
 }
