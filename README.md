@@ -17,8 +17,9 @@ The app runs in any modern browser and can also be packaged as a native Android 
   * [Android App](#android-app)
 * [Project Structure](#project-structure)
 * [Usage Guide](#usage-guide)
-  * [GPA Calculator](#usage-guide)
+  * [GPA Calculator](#gpa-calculator)
   * [Grade Calculator](#grade-calculator)
+* [Add-on Modules](#add-on-modules)
 
 ---
 
@@ -32,7 +33,7 @@ Automatically recalculates every time you change a grade. See your term GPA, ear
 
 **Target GPA Calculator** helps students calculate the average GPA they need to reach their goal.
 
-Create different **profiles** (e.g. one for each department, or one for a friend). Profiles store all grades and GPA history independently.
+Create different **profiles** (e.g. one for each department, or one for a friend). Profiles store all grades and GPA history independently and can be exported and shared as JSON files.
 
 **Transcript View** — a clean, printable transcript that shows saved semester GPAs and the cumulative progress (can be copied, shared, or downloaded).
 
@@ -65,7 +66,7 @@ cd GPA-Calculator-for-TAU
 
 3. **Start using** — select your department, pick a year/semester, enter grades, and the app will do the rest.
 
-> **Note:** All data is stored in your browser's `localStorage`. Clearing browser data will remove saved profiles and grades.
+> **Note:** All data is stored in your browser's `localStorage`. Clearing browser data will remove saved profiles and grades. Use the export feature to back up your data before clearing.
 
 ### Android App
 
@@ -84,6 +85,7 @@ The Android app loads `index.html` from the assets folder, so any changes to the
 ---
 
 ## Project Structure
+
 
 ---
 
@@ -105,6 +107,8 @@ The Android app loads `index.html` from the assets folder, so any changes to the
 
 7. **View and share your transcript** — switch to the **View** tab to see a full transcript of saved semesters. Use the share button to copy a text summary or save the transcript as an image.
 
+8. **Export or import profiles** — at the bottom of the **Profiles** tab, use the export buttons to download all profiles or just the active one as a `.json` file. Use **Import profiles** to load a file or paste JSON from a classmate. See [Profile Export / Import](#profile-export--import) for details.
+
 ---
 
 ### Grade Calculator
@@ -116,8 +120,8 @@ The **Grade Calc** screen is a standalone tool for computing a final course scor
 | Tab | Purpose |
 |---|---|
 | **Calc** | Enter component weights and grades to compute a final score |
-| **Templates** | Save, load, rename, and delete grading schemes |
-| **Scale** | Customize the letter-grade thresholds (AA / BA / BB … FF) |
+| **Templates** | Save, load, rename, delete, export, and import grading schemes |
+| **Scale** | Customize the letter-grade thresholds and manage named scale presets |
 
 #### Calc tab
 
@@ -148,6 +152,10 @@ Once at least one grade is entered, the result card appears showing:
 
 You can also press **Save to Course** to write the calculated letter grade directly into a course slot in the active GPA Calculator semester.
 
+**What do I need? panel**
+
+Directly below the result card, this panel answers the question students ask most: what score do I need on my final (or next blank component) to reach a target grade? Tap any letter grade pill to set the target. The panel shows the exact score needed on the first unfilled component (Final → Quizzes → Midterm), plus a full table of every grade from AA to DD showing whether each is already secured, impossible, or still reachable and at what score. Updates live on every keystroke.
+
 #### Templates tab
 
 Templates store a complete grading scheme (weights, which components are enabled, midterm count, and any extra rows) so you can reload it in one tap.
@@ -166,6 +174,8 @@ Templates store a complete grading scheme (weights, which components are enabled
 
 **Adding a built-in template** (for developers): append an object to `_RAW_BUILTINS` in `gr_storage.js`. The full schema with all supported fields is documented at the top of that file.
 
+**Export / Import** buttons appear at the bottom of the template list. Export downloads all saved (non-built-in) templates as a `.json` file. Import accepts a file or pasted JSON, shows a preview of what will be added and what will be skipped (same-name duplicates are never overwritten), then writes the new templates on confirm. On Android WebView where file downloads are blocked, export falls back to copying the JSON to the clipboard automatically.
+
 #### Scale tab
 
 The grading scale maps numeric scores to letter grades. The default TAU scale is:
@@ -183,3 +193,71 @@ The grading scale maps numeric scores to letter grades. The default TAU scale is
 | 0 | FF | Fail |
 
 Each threshold (except FF, which is locked at 0) can be edited directly. The editor enforces a strictly descending order — editing one value automatically nudges neighbours to prevent overlaps. Changes are saved to `localStorage` immediately and applied to the current result. Press **Reset to defaults** to restore the original scale.
+
+**Scale Presets** — below the threshold editor, a preset list lets you save and reload complete named scales. Three built-in presets are included (TAU Standard, Strict, Lenient). Custom presets can be saved from the current threshold state, updated with the **Update** button in the active bar, renamed, or deleted. Export / Import works the same way as grade templates.
+
+**Adding a built-in scale preset** (for developers): append an object to `_RAW_SCALE_BUILTINS` in `gr_scale_templates.js`. The schema is documented at the top of that file.
+
+---
+
+## Add-on Modules
+
+All add-ons are drop-in files — no existing code changes. Load order matters: add-ons must come after the files they depend on.
+
+Recommended `index.html` load order:
+
+```html
+<!-- Core -->
+<link  rel="stylesheet" href="gr_style.css">
+<script src="storage.js"   defer></script>
+<script src="data.js"      defer></script>
+<script src="app.js"       defer></script>
+<script src="calc.js"      defer></script>
+<script src="gr_storage.js" defer></script>
+<script src="gr_calc.js"   defer></script>
+
+<!-- Add-ons -->
+<link  rel="stylesheet" href="gr_needed.css">
+<link  rel="stylesheet" href="gr_export_import.css">
+<link  rel="stylesheet" href="gpa_export_import.css">
+<script src="gr_needed.js"           defer></script>
+<script src="gr_scale_templates.js"  defer></script>
+<script src="gr_export_import.js"    defer></script>
+<script src="gpa_export_import.js"   defer></script>
+```
+
+### "What do I need?" panel (`gr_needed.js` + `gr_needed.css`)
+
+Adds a panel below the Grade Calc result card. Given the grades already entered, it calculates the minimum score needed on the first blank component to reach any target letter grade. Patches `grCalc()` and `initGradeScreen()` at runtime — no source edits required.
+
+### Scale presets (`gr_scale_templates.js`)
+
+Adds named scale presets to the Scale sub-tab of Grade Calc. Patches `initGradeScreen()` and `grShowScreen()`. No separate CSS file — reuses existing classes from `gr_style.css`.
+
+### Grade template & scale export/import (`gr_export_import.js` + `gr_export_import.css`)
+
+Adds Export / Import buttons to both the Templates tab and the Scale tab. Patches `initGradeScreen()` and `grShowScreen()`. Depends on `gr_scale_templates.js` being loaded first for scale preset access.
+
+### Profile export/import (`gpa_export_import.js` + `gpa_export_import.css`)
+
+Adds three buttons at the bottom of the Profiles tab: **Export all profiles**, **Export active profile**, and **Import profiles**. Patches `showScreen()` to inject the UI when the Profiles tab is first opened. Depends on `storage.js` (`getAllProfiles`, `saveAllProfiles`) and `app.js` (`showScreen`, `showToast`).
+
+#### Profile export/import — file format
+
+```json
+{
+  "_type":    "gpa_profiles",
+  "_version": 1,
+  "exported": "2026-06-05T12:00:00.000Z",
+  "profiles": [
+    {
+      "name":       "Nihad — CNGB",
+      "dept":       "CNGB",
+      "semData":    { "CNGB|Year 1|Fall": [ ... ] },
+      "semHistory": { "Year 1|Fall": { "gpa": 3.5, "credits": 20 } }
+    }
+  ]
+}
+```
+
+Profile IDs are stripped on export and regenerated on import, so the same file can be safely imported on any device or browser without ID collisions.
