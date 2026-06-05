@@ -200,45 +200,19 @@ Each threshold (except FF, which is locked at 0) can be edited directly. The edi
 
 ---
 
-## Add-on Modules
-
-All add-ons are drop-in files — no existing code changes. Load order matters: add-ons must come after the files they depend on.
-
-Recommended `index.html` load order:
-
-```html
-<!-- Core -->
-<link  rel="stylesheet" href="gr_style.css">
-<script src="storage.js"   defer></script>
-<script src="data.js"      defer></script>
-<script src="app.js"       defer></script>
-<script src="calc.js"      defer></script>
-<script src="gr_storage.js" defer></script>
-<script src="gr_calc.js"   defer></script>
-
-<!-- Add-ons -->
-<link  rel="stylesheet" href="gr_needed.css">
-<link  rel="stylesheet" href="gr_export_import.css">
-<link  rel="stylesheet" href="gpa_export_import.css">
-<script src="gr_needed.js"           defer></script>
-<script src="gr_scale_templates.js"  defer></script>
-<script src="gr_export_import.js"    defer></script>
-<script src="gpa_export_import.js"   defer></script>
-```
-
-### "What do I need?" panel (`gr_needed.js` + `gr_needed.css`)
+### "What do I need?" panel
 
 Adds a panel below the Grade Calc result card. Given the grades already entered, it calculates the minimum score needed on the first blank component to reach any target letter grade. Patches `grCalc()` and `initGradeScreen()` at runtime — no source edits required.
 
-### Scale presets (`gr_scale_templates.js`)
+### Scale presets
 
 Adds named scale presets to the Scale sub-tab of Grade Calc. Patches `initGradeScreen()` and `grShowScreen()`. No separate CSS file — reuses existing classes from `gr_style.css`.
 
-### Grade template & scale export/import (`gr_export_import.js` + `gr_export_import.css`)
+### Grade template & scale export/import
 
 Adds Export / Import buttons to both the Templates tab and the Scale tab. Patches `initGradeScreen()` and `grShowScreen()`. Depends on `gr_scale_templates.js` being loaded first for scale preset access.
 
-### Profile export/import (`gpa_export_import.js` + `gpa_export_import.css`)
+### Profile export/import
 
 Adds three buttons at the bottom of the Profiles tab: **Export all profiles**, **Export active profile**, and **Import profiles**. Patches `showScreen()` to inject the UI when the Profiles tab is first opened. Depends on `storage.js` (`getAllProfiles`, `saveAllProfiles`) and `app.js` (`showScreen`, `showToast`).
 
@@ -254,7 +228,7 @@ Adds three buttons at the bottom of the Profiles tab: **Export all profiles**, *
       "name":       "Nihad — CNGB",
       "dept":       "CNGB",
       "semData":    { "CNGB|Year 1|Fall": [ ... ] },
-      "semHistory": { "Year 1|Fall": { "gpa": 3.5, "credits": 20 } }
+      "semHistory": { "Year 1|Fall": { "gpa": 3.65, "credits": 20 } }
     }
   ]
 }
