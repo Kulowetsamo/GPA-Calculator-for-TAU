@@ -1977,10 +1977,7 @@ function eiExportScaleTemplatesAll() {
 }
 
 function eiExportScaleTemplateCurrent() {
-  if (typeof currentScaleTemplateId === 'undefined') {
-    grShowToast('No scale template system found');
-    return;
-  }
+  // remove the currentScaleTemplateId check entirely
   const activeId = stGetActiveId();
   if (!activeId) { grShowToast('No active scale preset'); return; }
   const tpl = stGetById(activeId);
