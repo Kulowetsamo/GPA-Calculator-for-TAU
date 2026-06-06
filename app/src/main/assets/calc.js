@@ -1,11 +1,11 @@
-// Grades exists before there is a profile
+// ── pending save (grades entered before a profile exists) ─────
 let _pendingSave = null; // {key, dept} set when user tries to save without a profile
 
 function flushPendingSave(){
   if(!_pendingSave || !activeProfileId) return;
   const {key, dept, snap} = _pendingSave;
   _pendingSave = null;
-  // Inject the grades to newly added profile
+  // Inject the snapshotted grades into the now-active profile's semData
   if(snap && snap.length) semData[dept+'|'+key] = snap;
   // Switch context back to where the user was
   activeDept = dept;
@@ -19,7 +19,7 @@ function flushPendingSave(){
   showScreen('calc');
 }
 
-// Calculation Helpers
+// ── calculation helpers ───────────────────────────────────────
 function recalculate(){
   let pts=0,cr=0;
   const wiForSem = whatIfMode ? (whatIfGradesBySem[activeKey]||{}) : null;
@@ -43,7 +43,7 @@ function recalculate(){
 function saveSemester(){
   if(whatIfMode){showToast('Exit What-If mode first');return;}
   if(!activeProfileId){
-    // Snapshot current grades, so that they won't disappear in semester changes.
+    // Snapshot current DOM grades before navigating away so they survive the profile switch
     const snap=[];
     document.querySelectorAll('.course-row').forEach(row=>{
       const gradeEl=row.querySelector('.grade-select');
@@ -71,13 +71,14 @@ function saveSemester(){
   showToast('Semester saved ✓');
 }
 
-// What-if (Retake)
+// ── what-if ───────────────────────────────────────────────────
 // whatIfGradesBySem: { semKey: { rowIndex: gradeValue } }
 // realSnapshotBySem: { semKey: { rowIndex: gradeValue } }
 let whatIfMode=false;
 let whatIfGradesBySem={};   // what-if overrides, keyed by semKey then row index
 let realSnapshotBySem={};   // real grades snapshotted per sem when what-if was entered
 
+// Legacy aliases so other code that references these still works
 Object.defineProperty(window,'whatIfGrades',{get:()=>whatIfGradesBySem[activeKey]||{},set:()=>{}});
 Object.defineProperty(window,'realGradeSnapshot',{get:()=>realSnapshotBySem[activeKey]||{},set:()=>{}});
 
@@ -115,7 +116,7 @@ function toggleWhatIf(){
   }
 }
 
-// Apply stored what-if grades for the current sem back to the DOM selects
+// Apply stored what-if grades (if any) for the current sem back to the DOM selects
 function _applyWhatIfToDOM(){
   const wi=whatIfGradesBySem[activeKey]||{};
   document.querySelectorAll('.course-row:not(.zero-cr) .grade-select').forEach((sel,i)=>{
@@ -165,7 +166,7 @@ function _onWhatIfSemSwitch(){
 }
 
 function updateWhatIf(){
-  // Current Semester What-If GPA
+  // ── current semester what-if GPA ──────────────────────────────
   const wiForSem=whatIfGradesBySem[activeKey]||{};
   const snap=realSnapshotBySem[activeKey]||{};
   const rows=document.querySelectorAll('.course-row:not(.zero-cr)');
@@ -189,7 +190,7 @@ function updateWhatIf(){
     else{deltaEl.textContent=`▼ ${diff.toFixed(2)} from current`;deltaEl.className='whatif-delta down';}
   } else { deltaEl.textContent=''; }
 
-  // Cum. GPA across all semesters
+  // ── cumulative what-if GPA across all semesters ───────────────
   // Start from saved semHistory, then overlay what-if overrides for each touched semester
   let cumWiPts=0,cumWiCr=0,cumRealPts=0,cumRealCr=0;
   const allKeys=Object.keys(semHistory);
@@ -257,7 +258,7 @@ function resetWhatIf(){
   updateWhatIf();
 }
 
-// Target GPA
+// ── target GPA ────────────────────────────────────────────────
 function openTargetModal(){
   const cum=calcCumulative(semHistory);
   document.getElementById('targetModalDesc').textContent=cum

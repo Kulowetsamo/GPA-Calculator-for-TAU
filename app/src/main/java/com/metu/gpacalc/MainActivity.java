@@ -3,6 +3,7 @@ package com.metu.gpacalc;
 import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -11,23 +12,37 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Base64;
+import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.OutputStream;
 
 public class MainActivity extends Activity {
 
     private WebView webView;
+    private ValueCallback<Uri[]> uploadMessage;
+    private static final int FILE_CHOOSER_REQUEST_CODE = 12345;
+    private static final int EXPORT_FILE_REQUEST_CODE = 12346;
+    private File pendingExportFile;
+
+    private static final int PERMISSION_REQUEST_STORAGE = 100;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,14 +60,39 @@ public class MainActivity extends Activity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(true);
+        settings.setAllowFileAccessFromFileURLs(true);
+        settings.setAllowUniversalAccessFromFileURLs(true);
         settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
 
-        // ── Register the JS bridge ──
+        // Request storage permission for Android 9 and below (for saving images)
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                        PERMISSION_REQUEST_STORAGE);
+            }
+        }
+
         webView.addJavascriptInterface(new AndroidBridge(), "Android");
 
         webView.setWebViewClient(new WebViewClient());
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView webView,
+                                             ValueCallback<Uri[]> filePathCallback,
+                                             FileChooserParams fileChooserParams) {
+                uploadMessage = filePathCallback;
+                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("application/json");
+                startActivityForResult(intent, FILE_CHOOSER_REQUEST_CODE);
+                return true;
+            }
+        });
+
         webView.loadUrl("file:///android_asset/index.html");
 
         hideSystemUI();
@@ -64,107 +104,174 @@ public class MainActivity extends Activity {
         });
     }
 
-    // ── Javascript Interface ──────────────────────────────────────────────────
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == FILE_CHOOSER_REQUEST_CODE) {
+            if (uploadMessage == null) return;
+            Uri[] results = null;
+            if (resultCode == RESULT_OK && data != null) {
+                Uri uri = data.getData();
+                if (uri != null) results = new Uri[]{uri};
+            }
+            uploadMessage.onReceiveValue(results);
+            uploadMessage = null;
+        } else if (requestCode == EXPORT_FILE_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
+            Uri uri = data.getData();
+            if (uri != null && pendingExportFile != null && pendingExportFile.exists()) {
+                try (InputStream is = new FileInputStream(pendingExportFile);
+                     OutputStream os = getContentResolver().openOutputStream(uri)) {
+                    byte[] buffer = new byte[8192];
+                    int len;
+                    while ((len = is.read(buffer)) != -1) {
+                        os.write(buffer, 0, len);
+                    }
+                    runOnUiThread(() -> Toast.makeText(this, "✓ Exported successfully", Toast.LENGTH_LONG).show());
+                } catch (Exception e) {
+                    runOnUiThread(() -> Toast.makeText(this, "Export error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                }
+                pendingExportFile.delete();
+                pendingExportFile = null;
+            }
+        }
+    }
 
     private class AndroidBridge {
 
-        /**
-         * Called from JS: Android.saveImage(dataUrl, filename)
-         * Saves the PNG to the device's Pictures/GPA Calculator folder.
-         */
+        // ─── JSON EXPORT ─────────────────────────────────────────────
         @JavascriptInterface
-        public void saveImage(String dataUrl, String filename) {
-            try {
-                Bitmap bmp = dataUrlToBitmap(dataUrl);
-                if (bmp == null) { toast("Save failed: could not decode image"); return; }
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    // Android 10+ — use MediaStore (no WRITE_EXTERNAL_STORAGE needed)
-                    ContentValues cv = new ContentValues();
-                    cv.put(MediaStore.Images.Media.DISPLAY_NAME, filename);
-                    cv.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
-                    cv.put(MediaStore.Images.Media.RELATIVE_PATH,
-                            Environment.DIRECTORY_PICTURES + "/GPA Calculator");
-                    Uri uri = getContentResolver()
-                            .insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv);
-                    if (uri == null) { toast("Save failed"); return; }
-                    try (OutputStream os = getContentResolver().openOutputStream(uri)) {
-                        bmp.compress(Bitmap.CompressFormat.PNG, 100, os);
+        public void exportFile(String json, String suggestedFileName) {
+            runOnUiThread(() -> {
+                try {
+                    File tempFile = new File(getCacheDir(), suggestedFileName);
+                    try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+                        fos.write(json.getBytes());
                     }
-                } else {
-                    // Android 9 and below — write to file directly
-                    File dir = new File(Environment.getExternalStoragePublicDirectory(
-                            Environment.DIRECTORY_PICTURES), "GPA Calculator");
-                    if (!dir.exists()) dir.mkdirs();
-                    File file = new File(dir, filename);
-                    try (FileOutputStream fos = new FileOutputStream(file)) {
-                        bmp.compress(Bitmap.CompressFormat.PNG, 100, fos);
-                    }
-                    // Notify gallery
-                    Intent scan = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
-                    scan.setData(Uri.fromFile(file));
-                    sendBroadcast(scan);
+                    pendingExportFile = tempFile;
+                    Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("application/json");
+                    intent.putExtra(Intent.EXTRA_TITLE, suggestedFileName);
+                    startActivityForResult(intent, EXPORT_FILE_REQUEST_CODE);
+                    Toast.makeText(MainActivity.this, "Choose where to save", Toast.LENGTH_SHORT).show();
+                } catch (Exception e) {
+                    Toast.makeText(MainActivity.this, "Export prep error: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 }
-                toast("Saved to Pictures ✓");
-            } catch (Exception e) {
-                toast("Save failed: " + e.getMessage());
-            }
+            });
+        }
+        @JavascriptInterface
+        public void shareText(String text, String subject) {
+            runOnUiThread(() -> {
+                Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                shareIntent.setType("text/plain");
+                shareIntent.putExtra(Intent.EXTRA_TEXT, text);
+                shareIntent.putExtra(Intent.EXTRA_SUBJECT, subject);
+                startActivity(Intent.createChooser(shareIntent, "Share via"));
+            });
         }
 
-        /**
-         * Called from JS: Android.shareImage(dataUrl, filename)
-         * Opens the native share sheet with the PNG attached.
-         */
+        // ─── IMAGE SAVE (download) ───────────────────────────────────
         @JavascriptInterface
-        public void shareImage(String dataUrl, String filename) {
-            try {
+        public void saveImage(String dataUrl, String filename) {
+            runOnUiThread(() -> {
                 Bitmap bmp = dataUrlToBitmap(dataUrl);
-                if (bmp == null) { toast("Share failed: could not decode image"); return; }
-
-                // Write to cache dir — FileProvider can serve it to other apps
-                File cacheDir = new File(getCacheDir(), "shared_images");
-                if (!cacheDir.exists()) cacheDir.mkdirs();
-                File file = new File(cacheDir, filename);
-                try (FileOutputStream fos = new FileOutputStream(file)) {
-                    bmp.compress(Bitmap.CompressFormat.PNG, 100, fos);
+                if (bmp == null) {
+                    Toast.makeText(MainActivity.this, "Failed to decode image", Toast.LENGTH_SHORT).show();
+                    return;
                 }
 
-                Uri uri = FileProvider.getUriForFile(
-                        MainActivity.this,
-                        getPackageName() + ".fileprovider",
-                        file);
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        // Android 10+ : MediaStore
+                        ContentValues values = new ContentValues();
+                        values.put(MediaStore.Images.Media.DISPLAY_NAME, filename);
+                        values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
+                        values.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/GPA Calculator");
+                        Uri uri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+                        if (uri != null) {
+                            try (OutputStream os = getContentResolver().openOutputStream(uri)) {
+                                bmp.compress(Bitmap.CompressFormat.PNG, 100, os);
+                            }
+                            Toast.makeText(MainActivity.this, "Saved to Pictures/GPA Calculator", Toast.LENGTH_LONG).show();
+                        } else {
+                            Toast.makeText(MainActivity.this, "Failed to save image", Toast.LENGTH_SHORT).show();
+                        }
+                    } else {
+                        // Android 9 and below: write to external storage
+                        File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "GPA Calculator");
+                        if (!dir.exists() && !dir.mkdirs()) {
+                            Toast.makeText(MainActivity.this, "Cannot create directory", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        File file = new File(dir, filename);
+                        try (FileOutputStream fos = new FileOutputStream(file)) {
+                            bmp.compress(Bitmap.CompressFormat.PNG, 100, fos);
+                        }
+                        // Notify gallery
+                        Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+                        mediaScanIntent.setData(Uri.fromFile(file));
+                        sendBroadcast(mediaScanIntent);
+                        Toast.makeText(MainActivity.this, "Saved to Pictures/GPA Calculator", Toast.LENGTH_LONG).show();
+                    }
+                } catch (Exception e) {
+                    Log.e("SaveImage", "Error saving image", e);
+                    Toast.makeText(MainActivity.this, "Save error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
+        }
 
-                Intent shareIntent = new Intent(Intent.ACTION_SEND);
-                shareIntent.setType("image/png");
-                shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
-                shareIntent.putExtra(Intent.EXTRA_SUBJECT, "GPA Transcript");
-                shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        // ─── IMAGE SHARE ────────────────────────────────────────────
+        @JavascriptInterface
+        public void shareImage(String dataUrl, String filename) {
+            runOnUiThread(() -> {
+                Bitmap bmp = dataUrlToBitmap(dataUrl);
+                if (bmp == null) {
+                    Toast.makeText(MainActivity.this, "Failed to decode image", Toast.LENGTH_SHORT).show();
+                    return;
+                }
 
-                runOnUiThread(() ->
-                        startActivity(Intent.createChooser(shareIntent, "Share GPA Transcript")));
-            } catch (Exception e) {
-                toast("Share failed: " + e.getMessage());
-            }
+                try {
+                    // Write to cache directory
+                    File cacheDir = new File(getCacheDir(), "shared_images");
+                    if (!cacheDir.exists() && !cacheDir.mkdirs()) {
+                        Toast.makeText(MainActivity.this, "Cannot create cache", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    File imageFile = new File(cacheDir, filename);
+                    try (FileOutputStream fos = new FileOutputStream(imageFile)) {
+                        bmp.compress(Bitmap.CompressFormat.PNG, 100, fos);
+                    }
+
+                    // Get content URI via FileProvider
+                    Uri contentUri = FileProvider.getUriForFile(MainActivity.this,
+                            getPackageName() + ".fileprovider", imageFile);
+
+                    Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                    shareIntent.setType("image/png");
+                    shareIntent.putExtra(Intent.EXTRA_STREAM, contentUri);
+                    shareIntent.putExtra(Intent.EXTRA_SUBJECT, "GPA Transcript");
+                    shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivity(Intent.createChooser(shareIntent, "Share GPA Transcript"));
+                } catch (Exception e) {
+                    Log.e("ShareImage", "Error sharing image", e);
+                    Toast.makeText(MainActivity.this, "Share error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
         }
 
         private Bitmap dataUrlToBitmap(String dataUrl) {
             try {
-                // Strip the "data:image/png;base64," prefix
+                // dataUrl format: "data:image/png;base64,xxxxx"
                 String base64 = dataUrl.substring(dataUrl.indexOf(',') + 1);
-                byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
-                return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                byte[] decodedBytes = Base64.decode(base64, Base64.DEFAULT);
+                return BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length);
             } catch (Exception e) {
+                Log.e("DataUrl", "Failed to decode", e);
                 return null;
             }
         }
-
-        private void toast(String msg) {
-            runOnUiThread(() ->
-                    Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show());
-        }
     }
-
-    // ── Boilerplate ───────────────────────────────────────────────────────────
 
     private void hideSystemUI() {
         getWindow().getDecorView().setSystemUiVisibility(
@@ -187,10 +294,20 @@ public class MainActivity extends Activity {
     public void onBackPressed() {
         webView.evaluateJavascript("window.handleBackButton()", result -> {
             if (!"true".equals(result)) {
-                // evaluateJavascript callback runs on a background thread;
-                // finish() must be called on the UI thread.
-                runOnUiThread(() -> finish());
+                runOnUiThread(this::finish);
             }
         });
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == PERMISSION_REQUEST_STORAGE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "Storage permission granted", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Storage permission denied – cannot save images on Android 9", Toast.LENGTH_LONG).show();
+            }
+        }
     }
 }

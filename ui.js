@@ -8,36 +8,404 @@ function setProfileFilter(f){
   renderProfileList();
 }
 
-function renderProfileList(){
-  const profiles=getAllProfiles();
-  const list=document.getElementById('profileList');
-  list.innerHTML='';
-  const ids=Object.keys(profiles).filter(id=>profileFilter==='ALL'||(profiles[id].dept||'CNGB')===profileFilter);
-  if(!ids.length){
-    list.innerHTML='<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px 0;">No profiles'+(profileFilter!=='ALL'?' for '+profileFilter:'')+'. Create one above.</div>';
+function renderProfileList() {
+  _gpaEiEnsureSetup();
+  const profiles = getAllProfiles();
+  const list = document.getElementById('profileList');
+  list.innerHTML = '';
+  const ids = Object.keys(profiles).filter(id => profileFilter === 'ALL' || (profiles[id].dept || 'CNGB') === profileFilter);
+  if (!ids.length) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px 0;">No profiles' + (profileFilter !== 'ALL' ? ' for ' + profileFilter : '') + '. Create one above.</div>';
     return;
   }
-  ids.forEach(id=>{
-    const p=profiles[id];
-    const cnt=Object.keys(p.semHistory||{}).length;
-    const cum=calcCumulative(p.semHistory||{});
-    const dept=p.dept||'CNGB';
-    const card=document.createElement('div');
-    card.className='profile-card'+(id===activeProfileId?' is-active':'');
-    card.innerHTML=`
-      <div class="pc-info">
-        <div class="pc-name">${p.name}<span class="dept-badge">${dept}</span></div>
-        <div class="pc-meta">${cnt} semester${cnt!==1?'s':''} saved${cum?' · '+cum.val+' GPA':''}${cum?.honor?' · '+cum.honor:''}</div>
-      </div>
-      <div class="pc-actions">
-        ${id!==activeProfileId
-          ?`<button class="pc-btn load" onclick="loadProfile('${id}')">Load</button>`
-          :'<span style="font-size:11px;color:var(--accent);font-family:\'DM Mono\',monospace;">Active</span>'}
-        <button class="pc-btn" style="color:#c8a030;border-color:#3a2a10;" onclick="openRenameModal('${id}')">Rename</button>
-        <button class="pc-btn del" onclick="askDeleteProfile('${id}')">Del</button>
-      </div>`;
+  ids.forEach(id => {
+    const p = profiles[id];
+    const cnt = Object.keys(p.semHistory || {}).length;
+    const cum = calcCumulative(p.semHistory || {});
+    const dept = p.dept || 'CNGB';
+    const card = document.createElement('div');
+    card.className = 'profile-card' + (id === activeProfileId ? ' is-active' : '');
+    
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'pc-info';
+    infoDiv.innerHTML = `
+      <div class="pc-name">${p.name}<span class="dept-badge">${dept}</span></div>
+      <div class="pc-meta">${cnt} semester${cnt !== 1 ? 's' : ''} saved${cum ? ' · ' + cum.val + ' GPA' : ''}${cum?.honor ? ' · ' + cum.honor : ''}</div>
+    `;
+    card.appendChild(infoDiv);
+    
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'pc-actions';
+    
+    if (id !== activeProfileId) {
+      const loadBtn = document.createElement('button');
+      loadBtn.className = 'pc-btn load';
+      loadBtn.textContent = 'Load';
+      loadBtn.onclick = () => loadProfile(id);
+      actionsDiv.appendChild(loadBtn);
+    } else {
+      const activeSpan = document.createElement('span');
+      activeSpan.style.cssText = 'font-size:11px;color:var(--accent);font-family:"DM Mono",monospace;';
+      activeSpan.textContent = 'Active';
+      actionsDiv.appendChild(activeSpan);
+    }
+    
+    const renameBtn = document.createElement('button');
+    renameBtn.className = 'pc-btn';
+    renameBtn.style.cssText = 'color:#c8a030;border-color:#3a2a10;';
+    renameBtn.textContent = 'Rename';
+    renameBtn.onclick = () => openRenameModal(id);
+    actionsDiv.appendChild(renameBtn);
+    
+    const delBtn = document.createElement('button');
+    delBtn.className = 'pc-btn del';
+    delBtn.textContent = 'Del';
+    delBtn.onclick = () => askDeleteProfile(id);
+    actionsDiv.appendChild(delBtn);
+    
+    card.appendChild(actionsDiv);
     list.appendChild(card);
   });
+}
+
+const GPA_EI_VERSION = 1;
+const VALID_DEPTS    = ['CNGB', 'IENG', 'FE'];
+let _gpaEiParsed = null;
+
+function _gpaEiEnsureSetup() {
+  _gpaEiInjectButtons();
+  _gpaEiInjectModal();
+}
+
+function _gpaEiInjectButtons() {
+  if (document.getElementById('gpaEiRow')) return;
+  const screen = document.getElementById('profileScreen');
+  const container = screen?.querySelector('.profile-screen') || screen;
+  if (!container) return;
+
+  const row = document.createElement('div');
+  row.id = 'gpaEiRow';
+  row.className = 'gpa-ei-row';
+  row.innerHTML = `
+    <button class="gpa-ei-btn" onclick="gpaEiExportAll()">↓ Export All</button>
+    <button class="gpa-ei-btn" onclick="gpaEiExportActive()">↓ Export Current</button>
+    <button class="gpa-ei-btn" onclick="gpaEiShareProfiles()">↗ Share</button>
+    <button class="gpa-ei-btn" onclick="gpaEiOpenImport()">↑ Import</button>
+  `;
+  container.appendChild(row);
+}
+
+function _gpaEiInjectModal() {
+  if (document.getElementById('gpaEiModal')) return;
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="gpaEiModal" style="
+        display:none;position:fixed;inset:0;
+        background:rgba(0,0,0,0.78);backdrop-filter:blur(6px);
+        -webkit-backdrop-filter:blur(6px);z-index:310;
+        align-items:center;justify-content:center;padding:20px;">
+      <div class="gr-modal" style="max-width:440px;">
+        <h2>Import Profiles</h2>
+        <p style="margin-bottom:10px;">
+          Paste JSON below or choose a .json file.
+          Profiles with the same name as an existing one are skipped.
+        </p>
+
+        <label class="ei-file-label">
+          <span id="gpaEiFileChosen">No file chosen</span>
+          <input type="file" id="gpaEiFileInput" accept=".json,application/json"
+                 style="display:none;" onchange="gpaEiOnFileChosen(this)">
+          <span class="ei-file-btn">Choose file</span>
+        </label>
+
+        <textarea id="gpaEiPasteArea" class="ei-textarea"
+                  placeholder="Or paste JSON here…"
+                  oninput="gpaEiOnPaste(this)"></textarea>
+
+        <div id="gpaEiPreview" class="ei-preview" style="display:none;"></div>
+
+        <div class="gr-modal-btns" style="margin-top:14px;">
+          <button class="gr-btn-ghost"  onclick="gpaEiCloseModal()">Cancel</button>
+          <button class="gr-btn-accent" id="gpaEiConfirmBtn"
+                  onclick="gpaEiConfirmImport()" disabled>Import</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+function gpaEiExportAll() {
+  const profiles = getAllProfiles();
+  const keys = Object.keys(profiles);
+  if (!keys.length) { showToast('No profiles to export'); return; }
+  const payload = _gpaEiBuildPayload(profiles);
+  _gpaEiDownload('gpa_profiles_all.json', payload);
+  showToast(`Exported ${keys.length} profile(s) ✓`);
+}
+
+function gpaEiExportActive() {
+  if (!activeProfileId) { showToast('No active profile'); return; }
+  const profiles = getAllProfiles();
+  const p = profiles[activeProfileId];
+  if (!p) { showToast('Active profile not found'); return; }
+  const subset = { [activeProfileId]: p };
+  const payload = _gpaEiBuildPayload(subset);
+  const safeName = (p.name || 'profile').replace(/[^a-z0-9_\-]/gi, '_').toLowerCase();
+  _gpaEiDownload(`gpa_${safeName}.json`, payload);
+  showToast(`Exported "${p.name}" ✓`);
+}
+
+function _gpaEiBuildPayload(profiles) {
+  const list = Object.values(profiles).map(p => ({
+    name: p.name || 'Unnamed',
+    dept: p.dept || 'CNGB',
+    semData: p.semData || {},
+    semHistory: p.semHistory || {},
+  }));
+  return {
+    _type: 'gpa_profiles',
+    _version: GPA_EI_VERSION,
+    exported: new Date().toISOString(),
+    profiles: list,
+  };
+}
+
+function gpaEiShareProfiles() {
+  const profiles = getAllProfiles();
+  const keys = Object.keys(profiles);
+  if (!keys.length) { showToast('No profiles to share'); return; }
+  const payload = _gpaEiBuildPayload(profiles);
+  const jsonString = JSON.stringify(payload, null, 2);
+  const filename = 'gpa_profiles_all.json';
+
+  if (typeof Android !== 'undefined' && Android.shareText) {
+    try {
+      Android.shareText(jsonString, 'Share GPA Profiles');
+      showToast('Opening share sheet...');
+      return;
+    } catch (e) {
+      console.warn('Android shareText failed:', e);
+    }
+  }
+
+  const blob = new Blob([jsonString], { type: 'application/json' });
+  const file = new File([blob], filename, { type: 'application/json' });
+
+  if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+    navigator.share({ title: 'Share GPA Profiles', files: [file] })
+      .then(() => showToast('Shared ✓'))
+      .catch((e) => {
+        console.warn('File share failed:', e);
+        shareText(jsonString, 'Share GPA Profiles').then(shared => {
+          if (!shared) fallbackProfileShare(jsonString);
+        });
+      });
+    return;
+  }
+
+  if (navigator.share) {
+    shareText(jsonString, 'Share GPA Profiles').then(shared => {
+      if (!shared) fallbackProfileShare(jsonString);
+    });
+    return;
+  }
+
+  fallbackProfileShare(jsonString);
+}
+
+function fallbackProfileShare(jsonString) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(jsonString)
+      .then(() => showToast('Copied to clipboard (share not available)'))
+      .catch(() => showToast('Share failed'));
+  } else {
+    showToast('Share not supported');
+  }
+}
+
+function _gpaEiDownload(filename, payload) {
+  const json = JSON.stringify(payload, null, 2);
+  if (typeof Android !== 'undefined' && Android.exportFile) {
+    try {
+      Android.exportFile(json, filename);
+      return;
+    } catch (e) {
+      console.error('Android export error:', e);
+      showToast('Export error: ' + e.message);
+    }
+  }
+
+  try {
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+  } catch (e) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(json)
+        .then(() => showToast('Copied to clipboard (download not available)'))
+        .catch(() => showToast('Export failed'));
+    } else {
+      showToast('Export failed — no file support');
+    }
+  }
+}
+
+function gpaEiOpenImport() {
+  _gpaEiParsed = null;
+  document.getElementById('gpaEiPasteArea').value = '';
+  document.getElementById('gpaEiFileChosen').textContent = 'No file chosen';
+  document.getElementById('gpaEiPreview').style.display = 'none';
+  document.getElementById('gpaEiPreview').innerHTML = '';
+  document.getElementById('gpaEiConfirmBtn').disabled = true;
+  document.getElementById('gpaEiModal').style.display = 'flex';
+}
+
+function gpaEiCloseModal() {
+  document.getElementById('gpaEiModal').style.display = 'none';
+  _gpaEiParsed = null;
+}
+
+function gpaEiOnFileChosen(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('gpaEiFileChosen').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = e => _gpaEiValidate(e.target.result);
+  reader.readAsText(file);
+}
+
+function gpaEiOnPaste(textarea) {
+  _gpaEiValidate(textarea.value.trim());
+}
+
+function _gpaEiValidate(raw) {
+  const preview = document.getElementById('gpaEiPreview');
+  const btn = document.getElementById('gpaEiConfirmBtn');
+  _gpaEiParsed = null;
+  btn.disabled = true;
+  preview.style.display = 'none';
+  preview.innerHTML = '';
+  if (!raw) return;
+
+  let payload;
+  try { payload = JSON.parse(raw); }
+  catch (e) {
+    preview.style.display = 'block';
+    preview.innerHTML = `<span class="ei-preview-error">Invalid JSON — check for missing commas or brackets.</span>`;
+    return;
+  }
+
+  if (payload._type !== 'gpa_profiles') {
+    preview.style.display = 'block';
+    preview.innerHTML = `<span class="ei-preview-error">
+      Wrong file type — expected <strong>gpa_profiles</strong>,
+      got <strong>${payload._type || 'unknown'}</strong>.
+    </span>`;
+    return;
+  }
+
+  if (!Array.isArray(payload.profiles) || !payload.profiles.length) {
+    preview.style.display = 'block';
+    preview.innerHTML = `<span class="ei-preview-error">No profiles found in this file.</span>`;
+    return;
+  }
+
+  const existingNames = Object.values(getAllProfiles()).map(p => p.name.toLowerCase());
+  const valid = [];
+  const errors = [];
+
+  payload.profiles.forEach((p, i) => {
+    const label = `Profile ${i + 1}`;
+    if (typeof p.name !== 'string' || !p.name.trim()) {
+      errors.push(`${label}: missing name`); return;
+    }
+    if (!VALID_DEPTS.includes(p.dept)) {
+      errors.push(`"${p.name}": unknown dept "${p.dept}" (must be CNGB, IENG, or FE)`); return;
+    }
+    if (typeof p.semData !== 'object' || Array.isArray(p.semData)) {
+      errors.push(`"${p.name}": semData is malformed`); return;
+    }
+    if (typeof p.semHistory !== 'object' || Array.isArray(p.semHistory)) {
+      errors.push(`"${p.name}": semHistory is malformed`); return;
+    }
+
+    const dupe = existingNames.includes(p.name.trim().toLowerCase());
+    const semCount = Object.keys(p.semHistory || {}).length;
+    valid.push({ ...p, _dupe: dupe, _semCount: semCount });
+  });
+
+  const toImport = valid.filter(p => !p._dupe);
+  const skipped = valid.filter(p => p._dupe);
+
+  let html = '<div class="ei-preview-list">';
+  valid.forEach(p => {
+    const meta = `${p.dept} · ${p._semCount} semester(s) saved`;
+    html += `<div class="ei-preview-item ${p._dupe ? 'ei-preview-skip' : 'ei-preview-new'}">
+      <span class="ei-preview-dot">${p._dupe ? '○' : '●'}</span>
+      <div style="flex:1;min-width:0;">
+        <div class="ei-preview-name">${_gpaEiEsc(p.name)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">${meta}</div>
+      </div>
+      <span class="ei-preview-tag">${p._dupe ? 'skip — exists' : 'new'}</span>
+    </div>`;
+  });
+  errors.forEach(e => {
+    html += `<div class="ei-preview-item ei-preview-error-row">
+      <span class="ei-preview-dot">✗</span>
+      <span class="ei-preview-name">${_gpaEiEsc(e)}</span>
+    </div>`;
+  });
+  html += '</div>';
+
+  if (toImport.length) {
+    html += `<div class="ei-preview-summary">
+      ${toImport.length} will be imported${skipped.length ? `, ${skipped.length} skipped` : ''}.
+    </div>`;
+  } else {
+    html += `<div class="ei-preview-summary ei-preview-error">
+      Nothing to import — all profiles already exist or are invalid.
+    </div>`;
+  }
+
+  preview.style.display = 'block';
+  preview.innerHTML = html;
+
+  if (toImport.length) {
+    _gpaEiParsed = toImport;
+    btn.disabled = false;
+  }
+}
+
+function gpaEiConfirmImport() {
+  if (!_gpaEiParsed || !_gpaEiParsed.length) return;
+  const profiles = getAllProfiles();
+  let count = 0;
+
+  _gpaEiParsed.forEach(p => {
+    const id = 'prof_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    profiles[id] = {
+      name: p.name.trim(),
+      dept: p.dept,
+      semData: p.semData || {},
+      semHistory: p.semHistory || {},
+    };
+    count++;
+  });
+
+  saveAllProfiles(profiles);
+  gpaEiCloseModal();
+  if (typeof renderProfileList === 'function') renderProfileList();
+  showToast(`${count} profile(s) imported ✓`);
+}
+
+function _gpaEiEsc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ── semester UI ───────────────────────────────────────────────
@@ -248,10 +616,11 @@ function confirmNewProfile(){
 function askDeleteProfile(id){
   const profiles=getAllProfiles();
   deleteTargetId=id;
-  document.getElementById('deleteModalText').textContent=`Delete "${profiles[id]?.name}"? This cannot be undone.`;
+  deleteTargetName=profiles[id]?.name;
+  document.getElementById('deleteModalText').textContent=`Delete "${deleteTargetName}"? This cannot be undone.`;
   document.getElementById('deleteModal').classList.add('open');
 }
-function closeDeleteModal(){ document.getElementById('deleteModal').classList.remove('open'); deleteTargetId=null; }
+function closeDeleteModal(){ document.getElementById('deleteModal').classList.remove('open'); deleteTargetId=null; deleteTargetName=null; }
 
 function confirmDelete(){
   if(!deleteTargetId) return;
@@ -489,58 +858,108 @@ function buildShareText(){
   return lines.join('\n');
 }
 
-function shareTranscript(){
-  const text=buildShareText();
-  if(navigator.share){ navigator.share({title:'GPA Transcript',text}).catch(()=>{}); }
-  else { copyTranscript(); }
+async function shareTranscript() {
+  const text = buildShareText();
+  const shared = await shareText(text, 'GPA Transcript');
+  if (!shared) {
+    copyTranscript();
+  }
 }
-function copyTranscript(){
-  const text=buildShareText();
-  if(navigator.clipboard){ navigator.clipboard.writeText(text).then(()=>showToast('Copied ✓',2000)); }
-  else {
-    const ta=document.createElement('textarea');
-    ta.value=text; document.body.appendChild(ta); ta.select();
+
+async function shareText(text, title) {
+  if (typeof Android !== 'undefined' && Android.shareText) {
+    try {
+      Android.shareText(text, title);
+      return true;
+    } catch (e) {
+      console.warn('Android shareText failed:', e);
+    }
+  }
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, text });
+      return true;
+    } catch (e) {
+      if (e && e.name === 'AbortError') return true;
+      console.warn('Web share failed:', e);
+    }
+  }
+
+  return false;
+}
+
+function copyTranscript() {
+  const text = buildShareText();
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => showToast('Copied ✓', 2000));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
     document.execCommand('copy'); document.body.removeChild(ta);
-    showToast('Copied ✓',2000);
+    showToast('Copied ✓', 2000);
   }
 }
 
-// ── image export & share ─────────────────────────────────────
+// ── image share & save ─────────────────────────────
 window._lastExportDataUrl = null;
-window._lastExportBlobPromise = null;
+window._lastExportName = null;
 
-function shareImage() {
-  if (!window._lastExportDataUrl) { showToast('No image to share. Export first.'); return; }
-
-  // Android WebView bridge
-  if (typeof Android !== 'undefined' && Android.shareImage) {
-    try { Android.shareImage(window._lastExportDataUrl, window._lastExportName || 'GPA_Transcript.png'); return; } catch(e) {}
-  }
-
-  // Web: convert dataURL → Blob → File, then use Web Share API (if supported)
-  fetch(window._lastExportDataUrl)
-    .then(r => r.blob())
-    .then(blob => {
-      const file = new File([blob], window._lastExportName || 'GPA_Transcript.png', { type: 'image/png' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        navigator.share({ files: [file], title: 'GPA Transcript' }).catch(() => {});
-      } else {
-        // Fallback: just download it
-        downloadImg();
-      }
-    })
-    .catch(() => showToast('Share failed'));
+// Toast helper (uses Android toast if available, otherwise grShowToast)
+function showToast(msg) {
+  if (typeof grShowToast === 'function') grShowToast(msg);
+  else if (typeof Android !== 'undefined' && Android.toast) Android.toast(msg);
+  else alert(msg);
 }
 
-function downloadImg() {
-  if (!window._lastExportDataUrl) { showToast('No image to save'); return; }
-
-  // Android WebView bridge
-  if (typeof Android !== 'undefined' && Android.saveImage) {
-    try { Android.saveImage(window._lastExportDataUrl, window._lastExportName || 'GPA_Transcript.png'); return; } catch(e) {}
+// Share image – Android bridge if available, otherwise Web Share API or download fallback
+window.shareImage = async function() {
+  if (!window._lastExportDataUrl) {
+    showToast('No image to share. Export first.');
+    return;
   }
 
-  // Web: trigger a real <a download> click
+  if (typeof Android !== 'undefined' && Android.shareImage) {
+    try {
+      Android.shareImage(window._lastExportDataUrl, window._lastExportName || 'GPA_Transcript.png');
+      return;
+    } catch (e) {
+      console.warn('Android shareImage failed:', e);
+    }
+  }
+
+  try {
+    const response = await fetch(window._lastExportDataUrl);
+    const blob = await response.blob();
+    const file = new File([blob], window._lastExportName || 'GPA_Transcript.png', { type: 'image/png' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+      await navigator.share({ files: [file], title: 'GPA Transcript' });
+      return;
+    }
+  } catch (e) {
+    console.warn('Web share failed:', e);
+  }
+
+  downloadImg();
+};
+
+// Save image – Android bridge if available, otherwise download via anchor
+window.downloadImg = function() {
+  if (!window._lastExportDataUrl) {
+    showToast('No image to save');
+    return;
+  }
+
+  if (typeof Android !== 'undefined' && Android.saveImage) {
+    try {
+      Android.saveImage(window._lastExportDataUrl, window._lastExportName || 'GPA_Transcript.png');
+      return;
+    } catch (e) {
+      console.warn('Android saveImage failed:', e);
+    }
+  }
+
   const a = document.createElement('a');
   a.href = window._lastExportDataUrl;
   a.download = window._lastExportName || 'GPA_Transcript.png';
@@ -548,155 +967,229 @@ function downloadImg() {
   a.click();
   document.body.removeChild(a);
   showToast('Saved ✓');
-}
+};
 
-async function exportAsImage(){
-  const btn=document.getElementById('exportImgBtn');
-  if(btn){btn.textContent='Generating…';btn.disabled=true;}
-
+// Export as image – generates canvas and shows overlay with corrected button handlers
+window.exportAsImage = async function() {
+  const btn = document.getElementById('exportImgBtn');
+  if (btn) {
+    btn.textContent = 'Generating…';
+    btn.disabled = true;
+  }
   try {
-    // ── Wait for fonts to be ready (critical on Android WebView) ──
-    if(document.fonts && document.fonts.ready) await document.fonts.ready;
-    // Force-load DM Mono if FontFace API is available
-    if(document.fonts && document.fonts.load) {
+    // Wait for fonts
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    if (document.fonts && document.fonts.load) {
       await Promise.all([
         document.fonts.load('10px "DM Mono"'),
         document.fonts.load('bold 17px "DM Mono"'),
         document.fonts.load('600 10px "DM Mono"'),
-      ]).catch(()=>{});
+      ]).catch(() => {});
     }
 
-    const isLight=document.body.classList.contains('light');
-    const BG=isLight?'#f5f5f0':'#0f0f0f',SURF=isLight?'#ffffff':'#1a1a1a',BOR=isLight?'#dddbd0':'#2e2e2e';
-    const TEXT=isLight?'#1a1a1a':'#f0f0f0',ACC=isLight?'#5a8a00':'#c8f060',MUT=isLight?'#888':'#666';
-    const SAVBG=isLight?'#eef5e8':'#1a2e1a';
-    // Safe font stack: DM Mono with monospace fallback for Android
-    const FONT='"DM Mono",ui-monospace,"Courier New",monospace';
+    const isLight = document.body.classList.contains('light');
+    const BG = isLight ? '#f5f5f0' : '#0f0f0f';
+    const SURF = isLight ? '#ffffff' : '#1a1a1a';
+    const BOR = isLight ? '#dddbd0' : '#2e2e2e';
+    const TEXT = isLight ? '#1a1a1a' : '#f0f0f0';
+    const ACC = isLight ? '#5a8a00' : '#c8f060';
+    const MUT = isLight ? '#888' : '#666';
+    const SAVBG = isLight ? '#eef5e8' : '#1a2e1a';
+    const FONT = '"DM Mono", ui-monospace, "Courier New", monospace';
 
-    const profiles=getAllProfiles();
-    const profileName=activeProfileId&&profiles[activeProfileId]?profiles[activeProfileId].name:'—';
-    const savedSems=SEM_ORDER.filter(([y,s])=>semHistory[y+'|'+s]);
-    const cum=calcCumulative(semHistory);
-    const presets=getCoursePresets(); const electives=getElectivePresets();
+    const profiles = getAllProfiles();
+    const profileName = activeProfileId && profiles[activeProfileId] ? profiles[activeProfileId].name : '—';
+    const savedSems = SEM_ORDER.filter(([y, s]) => semHistory[y + '|' + s]);
+    const cum = calcCumulative(semHistory);
+    const presets = getCoursePresets();
+    const electives = getElectivePresets();
 
-    const SC=2,W=380,PAD=22,INNER=W-PAD*2;
+    const SC = 2, W = 380, PAD = 22, INNER = W - PAD * 2;
 
-    const semBlocks=[];
-    savedSems.forEach(([year,sem])=>{
-      const key=year+'|'+sem; const dataKey=activeDept+'|'+key;
-      const yIdx=['Year 1','Year 2','Year 3','Year 4'].indexOf(year)+1;
-      const semN=sem==='Fall'?1:2;
-      const savedD=semData[dataKey]||[];
-      const preset=[...(presets[key]||[])].sort((a,b)=>b[1]-a[1]);
-      const elects=electives[key]||[];
-      const courses=[
-        ...preset.map((c,i)=>({name:c[0],cr:c[1],grade:savedD[i]?.grade||'',isZero:c[1]===0})),
-        ...elects.map((nm,j)=>{const idx=preset.length+j;return{name:nm,cr:savedD[idx]?.credits||3,grade:savedD[idx]?.grade||'',isZero:false};})
-      ].filter(c=>c.grade!=='SKIP');
-      semBlocks.push({yIdx,semN,key,courses});
+    const semBlocks = [];
+    savedSems.forEach(([year, sem]) => {
+      const key = year + '|' + sem;
+      const dataKey = activeDept + '|' + key;
+      const yIdx = ['Year 1', 'Year 2', 'Year 3', 'Year 4'].indexOf(year) + 1;
+      const semN = sem === 'Fall' ? 1 : 2;
+      const savedD = semData[dataKey] || [];
+      const preset = [...(presets[key] || [])].sort((a, b) => b[1] - a[1]);
+      const elects = electives[key] || [];
+      const courses = [
+        ...preset.map((c, i) => ({ name: c[0], cr: c[1], grade: savedD[i]?.grade || '', isZero: c[1] === 0 })),
+        ...elects.map((nm, j) => {
+          const idx = preset.length + j;
+          return { name: nm, cr: savedD[idx]?.credits || 3, grade: savedD[idx]?.grade || '', isZero: false };
+        }),
+      ].filter(c => c.grade !== 'SKIP');
+      semBlocks.push({ yIdx, semN, key, courses });
     });
 
-    let H=PAD+14+6+22+10;
-    semBlocks.forEach(b=>{H+=18+7+b.courses.length*(28+4)+16;});
-    if(cum) H+=54+12;
-    H+=20+PAD;
+    let H = PAD + 14 + 6 + 22 + 10;
+    semBlocks.forEach(b => { H += 18 + 7 + b.courses.length * (28 + 4) + 16; });
+    if (cum) H += 54 + 12;
+    H += 20 + PAD;
 
-    // Cap canvas height to avoid OOM on low-memory Android devices
-    const MAX_H=16384;
-    if(H*SC>MAX_H){ showToast('Too many semesters to export as image'); if(btn){btn.textContent='Export as Image';btn.disabled=false;} return; }
+    const MAX_H = 16384;
+    if (H * SC > MAX_H) {
+      showToast('Too many semesters to export as image');
+      if (btn) { btn.textContent = 'Export as Image'; btn.disabled = false; }
+      return;
+    }
 
-    const canvas=document.createElement('canvas');
-    canvas.width=W*SC; canvas.height=H*SC;
-    const ctx=canvas.getContext('2d');
-    if(!ctx){ showToast('Canvas not supported on this device'); if(btn){btn.textContent='Export as Image';btn.disabled=false;} return; }
-    ctx.scale(SC,SC);
+    const canvas = document.createElement('canvas');
+    canvas.width = W * SC;
+    canvas.height = H * SC;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      showToast('Canvas not supported');
+      if (btn) { btn.textContent = 'Export as Image'; btn.disabled = false; }
+      return;
+    }
+    ctx.scale(SC, SC);
 
-    function rr(x,y,w,h,r,fill,stroke,sw){
+    function rr(x, y, w, h, r, fill, stroke, sw) {
       ctx.beginPath();
-      ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
-      ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
-      ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);
-      ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.arcTo(x + w, y, x + w, y + r, r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+      ctx.lineTo(x + r, y + h);
+      ctx.arcTo(x, y + h, x, y + h - r, r);
+      ctx.lineTo(x, y + r);
+      ctx.arcTo(x, y, x + r, y, r);
       ctx.closePath();
-      if(fill){ctx.fillStyle=fill;ctx.fill();}
-      if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=sw||1;ctx.stroke();}
-    }
-    function trunc(str,maxW){
-      if(ctx.measureText(str).width<=maxW)return str;
-      while(str.length>1&&ctx.measureText(str+'…').width>maxW)str=str.slice(0,-1);
-      return str+'…';
+      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = sw || 1; ctx.stroke(); }
     }
 
-    ctx.fillStyle=BG; ctx.fillRect(0,0,W,H);
-    let y=PAD;
+    function trunc(str, maxW) {
+      if (ctx.measureText(str).width <= maxW) return str;
+      let short = str;
+      while (short.length > 1 && ctx.measureText(short + '…').width > maxW) short = short.slice(0, -1);
+      return short + '…';
+    }
 
-    ctx.font=`600 10px ${FONT}`; ctx.fillStyle=ACC;
-    ctx.fillText(activeDept,PAD,y+11);
-    ctx.font=`10px ${FONT}`; ctx.fillStyle=MUT;
-    const sub='GPA Calculator';
-    ctx.fillText(sub,W-PAD-ctx.measureText(sub).width,y+11);
-    y+=14+6;
+    ctx.fillStyle = BG;
+    ctx.fillRect(0, 0, W, H);
+    let y = PAD;
 
-    ctx.font=`bold 17px ${FONT}`; ctx.fillStyle=TEXT;
-    ctx.fillText(trunc(profileName,INNER),PAD,y+17);
-    y+=22+10;
+    ctx.font = `600 10px ${FONT}`;
+    ctx.fillStyle = ACC;
+    ctx.fillText(activeDept, PAD, y + 11);
+    ctx.font = `10px ${FONT}`;
+    ctx.fillStyle = MUT;
+    const sub = 'GPA Calculator';
+    ctx.fillText(sub, W - PAD - ctx.measureText(sub).width, y + 11);
+    y += 14 + 6;
 
-    semBlocks.forEach(({yIdx,semN,key,courses})=>{
-      ctx.font=`500 9px ${FONT}`; ctx.fillStyle=MUT;
-      ctx.fillText('YEAR '+yIdx+' · SEM '+semN,PAD,y+12);
-      ctx.font=`bold 13px ${FONT}`; ctx.fillStyle=ACC;
-      const gStr=semHistory[key].gpa.toFixed(2);
-      ctx.fillText(gStr,W-PAD-ctx.measureText(gStr).width,y+12);
-      y+=18+7;
-      courses.forEach(({name,cr,grade,isZero})=>{
-        const g=isZero?(grade==='S'?'S':grade==='U'?'U':'—'):(grade||'FF');
-        const gC=isZero?(grade==='S'?'#80e080':grade==='U'?'#e08080':MUT):(grade?ACC:'#c06060');
-        rr(PAD,y,INNER,26,5,SURF,BOR,0.8);
-        ctx.font=`bold 12px ${FONT}`; ctx.fillStyle=gC;
-        ctx.fillText(g,PAD+10,y+17);
-        ctx.font=`10px ${FONT}`; ctx.fillStyle=MUT;
-        ctx.fillText(isZero?'—':cr+'cr',PAD+46,y+17);
-        ctx.font=`11px ${FONT}`; ctx.fillStyle=TEXT;
-        ctx.fillText(trunc(name,INNER-86-8),PAD+84,y+17);
-        y+=28+4;
+    ctx.font = `bold 17px ${FONT}`;
+    ctx.fillStyle = TEXT;
+    ctx.fillText(trunc(profileName, INNER), PAD, y + 17);
+    y += 22 + 10;
+
+    semBlocks.forEach(({ yIdx, semN, key, courses }) => {
+      ctx.font = `500 9px ${FONT}`;
+      ctx.fillStyle = MUT;
+      ctx.fillText('YEAR ' + yIdx + ' · SEM ' + semN, PAD, y + 12);
+      ctx.font = `bold 13px ${FONT}`;
+      ctx.fillStyle = ACC;
+      const gStr = semHistory[key].gpa.toFixed(2);
+      ctx.fillText(gStr, W - PAD - ctx.measureText(gStr).width, y + 12);
+      y += 18 + 7;
+      courses.forEach(({ name, cr, grade, isZero }) => {
+        const g = isZero ? (grade === 'S' ? 'S' : grade === 'U' ? 'U' : '—') : (grade || 'FF');
+        const gC = isZero ? (grade === 'S' ? '#80e080' : grade === 'U' ? '#e08080' : MUT) : (grade ? ACC : '#c06060');
+        rr(PAD, y, INNER, 26, 5, SURF, BOR, 0.8);
+        ctx.font = `bold 12px ${FONT}`;
+        ctx.fillStyle = gC;
+        ctx.fillText(g, PAD + 10, y + 17);
+        ctx.font = `10px ${FONT}`;
+        ctx.fillStyle = MUT;
+        ctx.fillText(isZero ? '—' : cr + 'cr', PAD + 46, y + 17);
+        ctx.font = `11px ${FONT}`;
+        ctx.fillStyle = TEXT;
+        ctx.fillText(trunc(name, INNER - 86 - 8), PAD + 84, y + 17);
+        y += 28 + 4;
       });
-      y+=16;
+      y += 16;
     });
 
-    if(cum){
-      rr(PAD,y,INNER,50,8,SAVBG,'#2a3a1a',1);
-      ctx.font=`500 9px ${FONT}`; ctx.fillStyle=MUT;
-      ctx.fillText('CUMULATIVE GPA',PAD+12,y+16);
-      if(cum.honor){ctx.font=`11px ${FONT}`;ctx.fillStyle=ACC;ctx.fillText(cum.honor,PAD+12,y+34);}
-      ctx.font=`bold 24px ${FONT}`; ctx.fillStyle=ACC;
-      ctx.fillText(cum.val,W-PAD-12-ctx.measureText(cum.val).width,y+36);
-      y+=54+12;
+    if (cum) {
+      rr(PAD, y, INNER, 50, 8, SAVBG, '#2a3a1a', 1);
+      ctx.font = `500 9px ${FONT}`;
+      ctx.fillStyle = MUT;
+      ctx.fillText('CUMULATIVE GPA', PAD + 12, y + 16);
+      if (cum.honor) {
+        ctx.font = `11px ${FONT}`;
+        ctx.fillStyle = ACC;
+        ctx.fillText(cum.honor, PAD + 12, y + 34);
+      }
+      ctx.font = `bold 24px ${FONT}`;
+      ctx.fillStyle = ACC;
+      ctx.fillText(cum.val, W - PAD - 12 - ctx.measureText(cum.val).width, y + 36);
+      y += 54 + 12;
     }
 
-    ctx.font=`9px ${FONT}`; ctx.fillStyle=MUT;
-    const foot='Generated with GPA Calculator';
-    ctx.fillText(foot,W/2-ctx.measureText(foot).width/2,y+13);
+    ctx.font = `9px ${FONT}`;
+    ctx.fillStyle = MUT;
+    const foot = 'Generated with GPA Calculator';
+    ctx.fillText(foot, W / 2 - ctx.measureText(foot).width / 2, y + 13);
 
-    // ── Generate output ──
     const dataUrl = canvas.toDataURL('image/png');
     window._lastExportDataUrl = dataUrl;
-    window._lastExportName = activeDept+'_GPA_'+profileName.replace(/\s+/g,'_')+'.png';
+    window._lastExportName = activeDept + '_GPA_' + profileName.replace(/\s+/g, '_') + '.png';
 
-    document.getElementById('overlayImg').src = dataUrl;
-    document.getElementById('imgOverlay').style.display = 'flex';
-
-  } catch(e){
-    console.error('Export failed:',e);
-    showToast('Export failed: '+(e.message||'unknown error'));
+    const overlayImg = document.getElementById('overlayImg');
+    if (overlayImg) overlayImg.src = dataUrl;
+    const overlay = document.getElementById('imgOverlay');
+    if (overlay) {
+      overlay.style.display = 'flex';
+      // Force the overlay buttons to call our Android‑only functions
+      setTimeout(() => {
+        const btns = overlay.querySelectorAll('button');
+        for (let i = 0; i < btns.length; i++) {
+          const txt = btns[i].innerText;
+          if (txt === 'Share') btns[i].onclick = window.shareImage;
+          else if (txt === 'Save') btns[i].onclick = window.downloadImg;
+        }
+      }, 50);
+    }
+    showToast('Image ready – use Share or Save');
+  } catch (e) {
+    console.error('Export failed:', e);
+    showToast('Export failed: ' + (e.message || 'unknown error'));
   } finally {
-    if(btn){btn.textContent='Export as Image';btn.disabled=false;}
+    if (btn) {
+      btn.textContent = 'Export as Image';
+      btn.disabled = false;
+    }
   }
-}
+};
 
-function closeImgOverlay(){
-  document.getElementById('imgOverlay').style.display='none';
-}
+// Close overlay
+window.closeImgOverlay = function() {
+  const overlay = document.getElementById('imgOverlay');
+  if (overlay) overlay.style.display = 'none';
+};
 
+// ── Test bridge function (optional, remove after testing) ──
+window.testAndroidBridge = function() {
+  if (typeof Android !== 'undefined') {
+    var methods = [];
+    for (var key in Android) methods.push(key);
+    alert('Bridge found. Methods: ' + methods.join(', '));
+    if (Android.shareImage) {
+      var testDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+      Android.shareImage(testDataUrl, 'test.png');
+    } else {
+      alert('shareImage missing');
+    }
+  } else {
+    alert('No Android bridge');
+  }
+};
 
 // ── swipe ─────────────────────────────────────────────────────
 (function(){

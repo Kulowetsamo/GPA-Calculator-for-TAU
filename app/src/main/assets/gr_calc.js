@@ -2038,17 +2038,6 @@ function _eiShare(jsonString, filename) {
       grShowToast('Share error: ' + e.message);
     }
   }
-
-  if (navigator.share) {
-    navigator.share({ title: `Share ${filename}`, text: jsonString })
-      .then(() => grShowToast('Shared ✓'))
-      .catch((e) => {
-        if (e && e.name === 'AbortError') return;
-        grShowToast('Share failed');
-      });
-    return;
-  }
-
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(jsonString)
       .then(() => grShowToast('Copied to clipboard (share not available)'))

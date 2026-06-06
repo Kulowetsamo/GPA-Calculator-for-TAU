@@ -6,7 +6,7 @@ function setActiveProfileId(id){ localStorage.setItem('gpa_activeProfile',id); }
 
 let activeKey='Year 1|Fall';
 let semData={}, semHistory={};
-let activeProfileId=null, deleteTargetId=null, deletedProfile=null;
+let activeProfileId=null, deleteTargetId=null, deleteTargetName=null, deletedProfile=null;
 
 function updateDeptSelectState() {
     const deptSel = document.getElementById('deptSel');
