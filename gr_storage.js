@@ -140,7 +140,6 @@ function _normalize(tpl) {
   };
 }
 
-// ── Public API ────────────────────────────────────────────────
 function getBuiltinTemplates() { return BUILTIN_TEMPLATES; }
 function getSavedTemplates()   { return _readAll().map(_normalize); }
 

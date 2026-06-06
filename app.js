@@ -133,5 +133,4 @@ loadTheme();
 loadActiveProfile();
 loadCourses();
 updateSwipeDots();
-// Establish the calc sentinel as the base history entry
 history.replaceState({screen:'calc'},'','');

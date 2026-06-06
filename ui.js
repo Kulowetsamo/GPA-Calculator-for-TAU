@@ -1177,23 +1177,6 @@ window.closeImgOverlay = function() {
   if (overlay) overlay.style.display = 'none';
 };
 
-// ── Test bridge function (optional, remove after testing) ──
-window.testAndroidBridge = function() {
-  if (typeof Android !== 'undefined') {
-    var methods = [];
-    for (var key in Android) methods.push(key);
-    alert('Bridge found. Methods: ' + methods.join(', '));
-    if (Android.shareImage) {
-      var testDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-      Android.shareImage(testDataUrl, 'test.png');
-    } else {
-      alert('shareImage missing');
-    }
-  } else {
-    alert('No Android bridge');
-  }
-};
-
 // ── swipe ─────────────────────────────────────────────────────
 (function(){
   const SEM_FLAT=["Year 1|Fall","Year 1|Spring","Year 2|Fall","Year 2|Spring","Year 3|Fall","Year 3|Spring","Year 4|Fall","Year 4|Spring"];

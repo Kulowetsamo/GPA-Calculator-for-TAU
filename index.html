@@ -8,10 +8,7 @@
     <title>GPA Calculator</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="gr_style.css">
-    <link rel="stylesheet" href="gr_needed.css">
-    <link rel="stylesheet" href="gr_export_import.css">
     <style>
-        /* Extra safety for file input button visibility */
         .ei-file-label {
             display: flex;
             align-items: center;
@@ -232,7 +229,7 @@
         <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
         Theme
     </button>
-    <div style="position:absolute;bottom:6px;right:20px;font-family:'DM Mono',monospace;font-size:8px;color:#556644;letter-spacing:0.08em;pointer-events:none;">v2.1.1</div>
+    <div style="position:absolute;bottom:6px;right:20px;font-family:'DM Mono',monospace;font-size:8px;color:#556644;letter-spacing:0.08em;pointer-events:none;">v1.2.1</div>
 </div>
 
 <!-- MODALS -->
@@ -290,7 +287,7 @@
 <!-- TOAST -->
 <div class="toast" id="toast"><div class="toast-inner"><span id="toastMsg" class="toast-msg"></span><button id="toastUndo" class="toast-undo" onclick="undoDelete()">Undo</button></div><div class="toast-progress"><div id="toastBar" class="toast-progress-bar"></div></div></div>
 
-<!-- IMAGE OVERLAY (FIXED: proper buttons) -->
+<!-- IMAGE OVERLAY -->
 <div id="imgOverlay" style="display:none;position:fixed;inset:0;background:#000;z-index:500;flex-direction:column;align-items:center;justify-content:flex-start;overflow-y:auto;">
     <div style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(0,0,0,0.85);position:sticky;top:0;z-index:1;">
         <button onclick="closeImgOverlay()" style="background:none;border:none;color:#f0f0f0;font-family:'DM Mono',monospace;font-size:13px;cursor:pointer;padding:4px 0;">← Back</button>
@@ -303,7 +300,6 @@
     <img id="overlayImg" src="" alt="GPA Transcript" style="display:block;width:100%;height:auto;"/>
 </div>
 
-<!-- SCRIPTS (ensure these exist in assets/) -->
 <script src="gr_storage.js" defer></script>
 <script src="gr_calc.js" defer></script>
 <script src="data.js" defer></script>
@@ -312,7 +308,6 @@
 <script src="ui.js" defer></script>
 <script src="app.js" defer></script>
 
-<!-- INITIALIZATION -->
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         if (typeof initGradeScreen === 'function') initGradeScreen();

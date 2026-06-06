@@ -1157,10 +1157,6 @@ function grConfirmSaveToCourse(course, gradeCode, dataKey, presetCount) {
   };
 })();
 
-// ═══════════════════════════════════════════════════════════════
-// ── MERGED: gr_needed.js (What do I need? panel) ──────────────
-// ═══════════════════════════════════════════════════════════════
-
 // ── 1. Patch grCalc to also refresh the needed panel ─────────
 (function () {
   const _orig = window.grCalc;
@@ -1180,10 +1176,7 @@ function grConfirmSaveToCourse(course, gradeCode, dataKey, presetCount) {
 })();
 
 function _grInjectNeededPanel() {
-  // Guard: only inject once
   if (document.getElementById('grNeededPanel')) return;
-
-  // Find the result card inside grCalcScreen and insert after it
   const resultCard = document.getElementById('grResultCard');
   if (!resultCard) return;
 
@@ -1251,7 +1244,6 @@ function grNeededCalc() {
   const out   = document.getElementById('grNeededResult');
   if (!panel || !out) return;
 
-  // ── collect weights (same logic as grCalc) ────────────────
   const labVisible   = document.getElementById('grLabWeightRow')?.style.display  !== 'none';
   const mtVisible    = document.getElementById('grMtWeightRow')?.style.display   !== 'none';
   const finVisible   = document.getElementById('grFinalWeightRow')?.style.display !== 'none';
@@ -1294,7 +1286,6 @@ function grNeededCalc() {
     extraGrades.push(inp.value === '' ? null : parseFloat(inp.value));
   });
 
-  // ── build "locked" score (what is already earned) ─────────
   let locked = 0;
   let missingFinalW = 0;
 
@@ -1339,13 +1330,10 @@ function grNeededCalc() {
     solveLabel = null;
   }
 
-  // ── get selected target ────────────────────────────────────
   const activeBtn = document.querySelector('.gr-needed-pill-active');
   if (!activeBtn) { panel.style.display = 'none'; return; }
   const targetMin  = parseFloat(activeBtn.dataset.min);
   const targetCode = activeBtn.dataset.code;
-
-  // Show the panel (we have enough context now)
   panel.style.display = '';
 
   // ── build output ───────────────────────────────────────────
@@ -1449,10 +1437,6 @@ function grNeededToggle() {
   if (btn)    btn.textContent       = _grNeededCollapsed ? 'Show' : 'Hide';
 }
 
-// ═══════════════════════════════════════════════════════════════
-// ── MERGED: gr_scale_templates.js (Scale presets) ────────────
-// ═══════════════════════════════════════════════════════════════
-
 const _RAW_SCALE_BUILTINS = [
   {
     name: 'TAU Standard',
@@ -1537,7 +1521,6 @@ function stGetActiveId()   { return localStorage.getItem(SCALE_TPL_ACTIVE_KEY) |
 function stSetActiveId(id) { localStorage.setItem(SCALE_TPL_ACTIVE_KEY, id); }
 function stClearActive()   { localStorage.removeItem(SCALE_TPL_ACTIVE_KEY); }
 
-// ── patch initGradeScreen to inject scale-template UI ─────────
 (function () {
   const _orig = window.initGradeScreen;
   window.initGradeScreen = function () {
@@ -1546,7 +1529,6 @@ function stClearActive()   { localStorage.removeItem(SCALE_TPL_ACTIVE_KEY); }
   };
 })();
 
-// ── patch grShowScreen to refresh template list on tab open ───
 (function () {
   const _orig = window.grShowScreen;
   window.grShowScreen = function (name) {
@@ -1825,13 +1807,8 @@ function stConfirmRename() {
   grShowToast('Renamed ✓');
 }
 
-// ═══════════════════════════════════════════════════════════════
-// ── MERGED: gr_export_import.js (Export/Import) ──────────────
-// ═══════════════════════════════════════════════════════════════
-
 const EI_VERSION = 1;
 
-// ── patch grShowScreen & initGradeScreen ──────────────────────
 (function () {
   const _origInit = window.initGradeScreen;
   window.initGradeScreen = function () {

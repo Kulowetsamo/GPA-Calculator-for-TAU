@@ -35,7 +35,6 @@ function recalculate(){
   });
   document.getElementById('semGpa').textContent    = cr>0?(pts/cr).toFixed(2):'—';
   document.getElementById('semCredits').textContent = cr>0?cr+' credits':'';
-  // Purple tint on sem GPA banner when what-if is active
   const semBanner = document.querySelector('#calcScreen .banner:not(.cum)');
   if(semBanner) semBanner.classList.toggle('whatif-active', whatIfMode);
 }
@@ -43,7 +42,6 @@ function recalculate(){
 function saveSemester(){
   if(whatIfMode){showToast('Exit What-If mode first');return;}
   if(!activeProfileId){
-    // Snapshot current DOM grades before navigating away so they survive the profile switch
     const snap=[];
     document.querySelectorAll('.course-row').forEach(row=>{
       const gradeEl=row.querySelector('.grade-select');
@@ -78,7 +76,6 @@ let whatIfMode=false;
 let whatIfGradesBySem={};   // what-if overrides, keyed by semKey then row index
 let realSnapshotBySem={};   // real grades snapshotted per sem when what-if was entered
 
-// Legacy aliases so other code that references these still works
 Object.defineProperty(window,'whatIfGrades',{get:()=>whatIfGradesBySem[activeKey]||{},set:()=>{}});
 Object.defineProperty(window,'realGradeSnapshot',{get:()=>realSnapshotBySem[activeKey]||{},set:()=>{}});
 
@@ -95,7 +92,6 @@ function toggleWhatIf(){
   document.getElementById('whatifToggle').classList.toggle('on',whatIfMode);
   document.getElementById('whatifBar').classList.toggle('active',whatIfMode);
   if(!whatIfMode){
-    // Restore all DOM selects to real grades for this sem
     const snap=realSnapshotBySem[activeKey]||{};
     document.querySelectorAll('.course-row:not(.zero-cr) .grade-select').forEach((sel,i)=>{
       const real=snap[i]??'';
@@ -151,8 +147,6 @@ function attachWhatIfListeners(){
   });
 }
 
-// Called when switching semesters in what-if mode — saves current sem's what-if state,
-// resets DOM to real grades for the NEW semester, then reapplies any saved what-if overrides
 function _onWhatIfSemSwitch(){
   if(!whatIfMode) return;
   // Snapshot real grades for the newly-loaded semester
@@ -191,7 +185,6 @@ function updateWhatIf(){
   } else { deltaEl.textContent=''; }
 
   // ── cumulative what-if GPA across all semesters ───────────────
-  // Start from saved semHistory, then overlay what-if overrides for each touched semester
   let cumWiPts=0,cumWiCr=0,cumRealPts=0,cumRealCr=0;
   const allKeys=Object.keys(semHistory);
 
@@ -202,7 +195,6 @@ function updateWhatIf(){
 
     const wiOverrides=whatIfGradesBySem[key];
     if(wiOverrides&&Object.keys(wiOverrides).length){
-      // Rebuild GPA for this semester using what-if overrides merged with real semData
       const dataKey=activeDept+'|'+key;
       const saved=semData[dataKey]||[];
       const preset=[...(getCoursePresets()[key]||[])].sort((a,b)=>b[1]-a[1]);
@@ -228,10 +220,7 @@ function updateWhatIf(){
       cumWiPts+=hist.gpa*hist.credits;cumWiCr+=hist.credits;
     }
   });
-
-  // Also factor in current semester if it's NOT in semHistory yet (unsaved)
-  // The current-sem what-if contribution is already reflected in wiSemGpa above,
-  // but for the cumulative we need to handle it separately if unsaved
+  
   if(!semHistory[activeKey]&&wiSemGpa!==null){
     cumWiPts+=wiSemGpa*wiCr;cumWiCr+=wiCr;
     cumRealPts+=realSemGpa!==null?realSemGpa*realCr:0;cumRealCr+=realSemGpa!==null?realCr:0;
