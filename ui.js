@@ -79,8 +79,11 @@ function _gpaEiEnsureSetup() {
 
 function _gpaEiInjectButtons() {
   if (document.getElementById('gpaEiRow')) return;
+
+  // profileScreen may not exist yet; fall back to profileList's parent
   const screen = document.getElementById('profileScreen');
-  const container = screen?.querySelector('.profile-screen') || screen;
+  const list   = document.getElementById('profileList');
+  const container = screen?.querySelector('.profile-screen') || screen || list?.parentElement;
   if (!container) return;
 
   const row = document.createElement('div');

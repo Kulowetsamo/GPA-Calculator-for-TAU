@@ -1850,8 +1850,8 @@ const EI_VERSION = 1;
 
 function _eiInjectGradeButtons() {
   if (document.getElementById('eiGradeExportRow')) return;
-  const noSaved = document.getElementById('grNoSaved');
-  if (!noSaved) return;
+  const anchor = document.getElementById('grSavedList');
+  if (!anchor) return;
 
   const row = document.createElement('div');
   row.id        = 'eiGradeExportRow';
@@ -1862,13 +1862,13 @@ function _eiInjectGradeButtons() {
     <button class="gr-btn-ghost ei-btn" onclick="eiShareGradeTemplates()">↗ Share</button>
     <button class="gr-btn-ghost ei-btn" onclick="eiOpenImport('grade')">↑ Import</button>
   `;
-  noSaved.insertAdjacentElement('afterend', row);
+  anchor.insertAdjacentElement('afterend', row);
 }
 
 function _eiInjectScaleButtons() {
   if (document.getElementById('eiScaleExportRow')) return;
-  const noSaved = document.getElementById('stNoSaved');
-  if (!noSaved) return;
+  const anchor = document.getElementById('stSavedList');
+  if (!anchor) return;
 
   const row = document.createElement('div');
   row.id        = 'eiScaleExportRow';
@@ -1879,9 +1879,8 @@ function _eiInjectScaleButtons() {
     <button class="gr-btn-ghost ei-btn" onclick="eiShareScaleTemplates()">↗ Share</button>
     <button class="gr-btn-ghost ei-btn" onclick="eiOpenImport('scale')">↑ Import</button>
   `;
-  noSaved.insertAdjacentElement('afterend', row);
+  anchor.insertAdjacentElement('afterend', row);
 }
-
 function _eiInjectModal() {
   if (document.getElementById('eiModal')) return;
   document.body.insertAdjacentHTML('beforeend', `
