@@ -16,26 +16,35 @@ The app runs in any modern browser and can also be packaged as a native Android 
   * [Web App](#web-app)
   * [Android App](#android-app)
 * [Project Structure](#project-structure)
+* [Load Order](#load-order)
 * [Usage Guide](#usage-guide)
   * [GPA Calculator](#gpa-calculator)
   * [Grade Calculator](#grade-calculator)
-* [Add-on Modules](#add-on-modules)
+* [Profile Export / Import](#profile-export--import)
 
 ---
 
 ## Features
 
-All mandatory and elective courses for three departments are given — just select your department, year, and courses.
+All mandatory and elective courses for three departments are included — just select your department, year, and semester; the course list updates automatically.
 
-Automatically recalculates every time you change a grade. See your term GPA, earned credits, and cumulative GPA including honors status (High Honor ★, Honor ✦, or warning ⚠).
+The GPA recalculates on every grade change. The status bar shows your term GPA, earned credits, and cumulative GPA including honors status (High Honor ★, Honor ✦, or warning ⚠).
+
+**Semester swipe** — swipe left or right on the calculator screen (or tap the dot indicators) to move between semesters without touching the dropdowns.
 
 **What-if Mode** temporarily overrides any grade to see how it would affect your cumulative GPA without saving the changes.
 
-**Target GPA Calculator** helps students calculate the average GPA they need to reach their goal.
+**Target GPA Calculator** calculates the average GPA needed in the next semester to reach or maintain a target.
 
-Create different **profiles** (e.g. one for each department, or one for a friend). Profiles store all grades and GPA history independently and can be exported and shared as JSON files.
+**Profiles** — create separate profiles (e.g. one per student or department). Each profile stores all grades, GPA history, and department independently. Profiles can be exported as JSON and shared or imported on another device.
 
-**Transcript View** — a clean, printable transcript that shows saved semester GPAs and the cumulative progress (can be copied, shared, or downloaded).
+**Profile filter tabs** on the Profiles screen let you filter the list by department (ALL / CNGB / IENG / FE).
+
+**Transcript view** — a clean, printable transcript showing saved semester GPAs and cumulative progress. Can be copied as text, shared via the system share sheet, or exported as a PNG image.
+
+**Grade Calculator** — a standalone tool for computing a final course score from weighted components. Includes templates, a customisable grading scale, scale presets, and export/import for both templates and scales.
+
+**"What do I need?" panel** — displayed below the Grade Calc result, it shows the exact score needed on the first blank component to reach any target letter grade, and a full table from AA to FF.
 
 Toggle between **dark and light themes** that automatically follow the system preference.
 
@@ -62,7 +71,7 @@ git clone https://github.com/Kulowetsamo/GPA-Calculator-for-TAU.git
 cd GPA-Calculator-for-TAU
 ```
 
-2. **Open in browser** — simply open `index.html` in any modern browser (Chrome, Firefox, Edge, Safari). No build step or web server is required.
+2. **Open in browser** — open `index.html` in any modern browser (Chrome, Firefox, Edge, Safari). No build step or web server is required.
 
 3. **Start using** — select your department, pick a year/semester, enter grades, and the app will do the rest.
 
@@ -80,12 +89,37 @@ The repository includes a complete Android project in the `app/` folder.
 2. Sync Gradle files.
 3. **Build → Build APK** or run on an emulator/device.
 
-The Android app loads `index.html` from the assets folder, so any changes to the HTML/CSS/JS files are automatically reflected in the APK after a rebuild.
+The Android app loads `index.html` from the assets folder. Any changes to HTML/CSS/JS files are reflected in the APK after a rebuild.
+
+> **Android bridges used:** the app calls `Android.shareText(text, title)` for the share sheet and `Android.exportFile(json, filename)` for file downloads. If these bridges are not available the app falls back to the Web Share API and `Blob` download links respectively.
 
 ---
 
 ## Project Structure
 
+```
+├── index.html          — app shell, all screens and modals
+├── style.css           — main app styles (dark/light theme, layout)
+├── gr_style.css        — Grade Calc styles
+├── data.js             — course data for CNGB, IENG, FE; grade point table
+├── gr_storage.js       — Grade Calc template storage and built-in template definitions
+├── gr_calc.js          — Grade Calc engine and screen controller (initGradeScreen)
+├── storage.js          — GPA profile storage helpers; semData / semHistory state
+├── calc.js             — GPA calculation, What-if mode, Target GPA
+├── ui.js               — rendering (course rows, transcript, profile list),
+│                         export/import for profiles, swipe navigation, toasts
+└── app.js              — screen routing, semester navigation, Android back-button bridge
+```
+
+---
+
+## Load Order
+
+Scripts are loaded with `defer` in this order:
+
+```
+gr_storage.js → gr_calc.js → data.js → storage.js → calc.js → ui.js → app.js
+```
 
 ---
 
@@ -93,27 +127,29 @@ The Android app loads `index.html` from the assets folder, so any changes to the
 
 ### GPA Calculator
 
-1. **Choose your department and semester** — use the three dropdowns at the top of the Calculator screen to select Department, Year, and Semester. The course list updates automatically.
+1. **Choose your department and semester** — use the dropdowns at the top of the Calculator screen. The course list updates automatically. The department selector is locked while a profile is active (department is set per profile).
 
-2. **Enter grades** — for each course, select a letter grade from the dropdown. The semester GPA and credits are recalculated immediately. Courses marked with `SKIP` or `S/U` (zero-credit) are ignored.
+2. **Navigate semesters** — use the Year/Semester dropdowns, or swipe left/right on the calculator screen. The dot strip at the bottom shows your position across all eight semesters.
 
-3. **Save the semester** — press **Save GPA**. This stores the current semester's GPA and credits in the profile's history and updates the cumulative GPA.
+3. **Enter grades** — select a letter grade from the dropdown on each course row. The semester GPA and credits update instantly. Courses graded `SKIP` or `S/U` (zero-credit) are excluded.
 
-4. **Create a profile** *(optional)* — navigate to the **Profiles** tab and click **+ New Profile**. Give it a name and assign a department. Once a profile is active, your saved semester data is tied to it.
+4. **Save the semester** — press **Save GPA**. This writes the semester GPA and credit count into the profile's history and updates the cumulative GPA banner.
 
-5. **Use What-If mode** — click **What-If** to enter temporary grade overrides. Change any grade to see the projected impact on your cumulative GPA. Changes are not saved; exit what-if mode to return to your real grades.
+5. **Create a profile** *(optional)* — go to the **Profiles** tab and tap **+ New Profile**. Give it a name and choose a department. Once active, all saved data is tied to that profile.
 
-6. **Set a target GPA** — click **Target GPA**, enter your desired cumulative GPA, and the tool will calculate the average grade needed in remaining semesters.
+6. **Use What-If mode** — tap **What-If** to enter temporary grade overrides. The cumulative GPA updates live; changes are not saved. Exit What-If to return to real grades.
 
-7. **View and share your transcript** — switch to the **View** tab to see a full transcript of saved semesters. Use the share button to copy a text summary or save the transcript as an image.
+7. **Set a target GPA** — tap **Target GPA**, enter your desired cumulative GPA, and the tool will calculate what you need next semester.
 
-8. **Export or import profiles** — at the bottom of the **Profiles** tab, use the export buttons to download all profiles or just the active one as a `.json` file. Use **Import profiles** to load a file or paste JSON from a classmate. See [Profile Export / Import](#profile-export--import) for details.
+8. **View and share your transcript** — switch to the **View** tab. Use the action buttons to copy a text summary, share via the system share sheet, or export the transcript as a PNG image.
+
+9. **Export or import profiles** — at the bottom of the **Profiles** tab, use the export buttons to download all profiles or just the active one as a `.json` file. Tap **Import** to load a file or paste JSON directly.
 
 ---
 
 ### Grade Calculator
 
-The **Grade Calc** screen is a standalone tool for computing a final course score from individual components (midterms, final exam, quizzes, lab, bonus quizzes, and any custom extras). It is separate from the GPA calculator and works with any grading scheme.
+The **Grade Calc** screen is a standalone tool for computing a final course score from individual components. It works with any grading scheme and is independent of the GPA calculator.
 
 #### Sub-tabs
 
@@ -121,44 +157,40 @@ The **Grade Calc** screen is a standalone tool for computing a final course scor
 |---|---|
 | **Calc** | Enter component weights and grades to compute a final score |
 | **Templates** | Save, load, rename, delete, export, and import grading schemes |
-| **Scale** | Customize the letter-grade thresholds and manage named scale presets |
+| **Scale** | Customise the letter-grade thresholds and manage named scale presets |
 
 #### Calc tab
 
 **Component Weights card**
 
-Set the percentage weight for each component. The total must equal 100% for an accurate result (a live status indicator warns you if it does not). Components can be shown or hidden individually with the toggle buttons (± Midterm, ± Final, ± Quizzes, ± Lab, ± Bonus).
+Set the percentage weight for each component. A live indicator warns you when the total does not equal 100%. Components can be shown or hidden with the toggle buttons (± Midterm, ± Final, ± Quizzes, ± Lab, ± Bonus).
 
 | Component | Notes |
 |---|---|
-| Midterm | Supports multiple midterm scores; the average is used automatically |
+| Midterm | Supports multiple scores; the average is used automatically |
 | Final exam | Single score |
 | Quizzes | Single average score |
-| Lab | Calculated independently — its weight is subtracted from the total before the remaining components are scaled, so it does not compress the other weights |
+| Lab | Calculated independently — its weight is carved out before the remaining components are scaled, so it does not compress the other weights |
 | Bonus quizzes | Treated as an additive bonus on top of the base score |
 | Extras | Fully custom rows (label + weight) defined per template |
 
 **Entering grades**
 
-Each enabled component gets its own input row. For Midterms you can add multiple rows with **+ add** and remove any with the × button. Leave a field blank to exclude that component from the calculation.
+Each enabled component gets its own input row. For Midterms you can add multiple rows with **+ add** and remove any with the × button. Leave a field blank to exclude it from the calculation.
 
 **Result card**
 
-Once at least one grade is entered, the result card appears showing:
+Once at least one grade is entered, the result card shows the computed score (0–100), the corresponding letter grade and description, and a per-component breakdown of each contribution.
 
-* The computed score (0–100)
-* The corresponding letter grade and description (e.g. *BB — Very Good*)
-* A per-component breakdown showing each contribution to the total
-
-You can also press **Save to Course** to write the calculated letter grade directly into a course slot in the active GPA Calculator semester.
+Press **Save to Course** to write the calculated letter grade directly into a course slot in the active GPA Calculator semester.
 
 **What do I need? panel**
 
-Directly below the result card, this panel answers the question students ask most: what score do I need on my final (or next blank component) to reach a target grade? Tap any letter grade pill to set the target. The panel shows the exact score needed on the first unfilled component (Final → Quizzes → Midterm), plus a full table of every grade from AA to DD showing whether each is already secured, impossible, or still reachable and at what score. Updates live on every keystroke.
+Below the result card, this panel shows the exact score needed on the first unfilled component (Final → Quizzes → Midterm) to reach a target grade. Tap any letter grade pill to set the target. A full table from AA to FF shows whether each grade is already secured, impossible, or still reachable and at what score. Updates live on every keystroke.
 
 #### Templates tab
 
-Templates store a complete grading scheme (weights, which components are enabled, midterm count, and any extra rows) so you can reload it in one tap.
+Templates store a complete grading scheme (weights, which components are enabled, midterm count, and any extra rows).
 
 **Built-in templates** (read-only):
 
@@ -170,11 +202,11 @@ Templates store a complete grading scheme (weights, which components are enabled
 | 1 MT · Quizzes · 1 Final | One midterm (30%) + quizzes (30%) + final (40%) |
 | Physics II | Two midterms (60%) + final (40%) + lab (10%) |
 
-**Custom templates** can be created from the current Calc state with **Save Template**, renamed with the pencil icon, and deleted with the bin icon.
+**Custom templates** can be saved from the current Calc state with **Save Template**, renamed with the pencil icon, and deleted with the bin icon. An **Update** button in the active-template bar overwrites the loaded template with the current weights.
 
 **Adding a built-in template** (for developers): append an object to `_RAW_BUILTINS` in `gr_storage.js`. The full schema with all supported fields is documented at the top of that file.
 
-**Export / Import** buttons appear at the bottom of the template list. Export downloads all saved (non-built-in) templates as a `.json` file. Import accepts a file or pasted JSON, shows a preview of what will be added and what will be skipped (same-name duplicates are never overwritten), then writes the new templates on confirm. On Android WebView where file downloads are blocked, export falls back to copying the JSON to the clipboard automatically.
+**Export / Import** — Export downloads all saved (non-built-in) templates as a `.json` file. Import accepts a file or pasted JSON, shows a preview of what will be added and what will be skipped (same-name duplicates are never overwritten), then writes the new templates on confirm. On Android WebView where file downloads are blocked, export falls back to the clipboard automatically.
 
 #### Scale tab
 
@@ -192,31 +224,28 @@ The grading scale maps numeric scores to letter grades. The default TAU scale is
 | 50 | FD | Conditional Fail |
 | 0 | FF | Fail |
 
-Each threshold (except FF, which is locked at 0) can be edited directly. The editor enforces a strictly descending order — editing one value automatically nudges neighbours to prevent overlaps. Changes are saved to `localStorage` immediately and applied to the current result. Press **Reset to defaults** to restore the original scale.
+Each threshold (except FF, which is locked at 0) can be edited directly. The editor enforces strictly descending order — editing one value automatically nudges neighbours to prevent overlaps. Changes are saved to `localStorage` immediately. Press **Reset to defaults** to restore the original scale.
 
-**Scale Presets** — below the threshold editor, a preset list lets you save and reload complete named scales. Three built-in presets are included (TAU Standard, Strict, Lenient). Custom presets can be saved from the current threshold state, updated with the **Update** button in the active bar, renamed, or deleted. Export / Import works the same way as grade templates.
+**Scale Presets** — save and reload complete named scales. Three built-in presets are included (TAU Standard, Strict, Lenient). Custom presets can be saved from the current threshold state, updated with the **Update** button, renamed, or deleted. Export / Import works the same way as grade templates.
 
 **Adding a built-in scale preset** (for developers): append an object to `_RAW_SCALE_BUILTINS` in `gr_scale_templates.js`. The schema is documented at the top of that file.
 
 ---
 
-### "What do I need?" panel
+## Profile Export / Import
 
-Adds a panel below the Grade Calc result card. Given the grades already entered, it calculates the minimum score needed on the first blank component to reach any target letter grade. Patches `grCalc()` and `initGradeScreen()` at runtime — no source edits required.
+Four buttons appear at the bottom of the Profiles screen:
 
-### Scale presets
+| Button | Action |
+|---|---|
+| ↓ Export All | Downloads all profiles as `gpa_profiles_all.json` |
+| ↓ Export Current | Downloads the active profile as `gpa_<name>.json` |
+| ↗ Share | Opens the system share sheet with the full profiles JSON |
+| ↑ Import | Opens the import modal — choose a `.json` file or paste JSON |
 
-Adds named scale presets to the Scale sub-tab of Grade Calc. Patches `initGradeScreen()` and `grShowScreen()`. No separate CSS file — reuses existing classes from `gr_style.css`.
+On Android WebView, **Export** calls `Android.exportFile(json, filename)` if the bridge is available; otherwise it falls back to copying the JSON to the clipboard. **Share** calls `Android.shareText(text, title)` if available, then tries the Web Share API, then falls back to the clipboard.
 
-### Grade template & scale export/import
-
-Adds Export / Import buttons to both the Templates tab and the Scale tab. Patches `initGradeScreen()` and `grShowScreen()`. Depends on `gr_scale_templates.js` being loaded first for scale preset access.
-
-### Profile export/import
-
-Adds three buttons at the bottom of the Profiles tab: **Export all profiles**, **Export active profile**, and **Import profiles**. Patches `showScreen()` to inject the UI when the Profiles tab is first opened. Depends on `storage.js` (`getAllProfiles`, `saveAllProfiles`) and `app.js` (`showScreen`, `showToast`).
-
-#### Profile export/import — file format
+### File format
 
 ```json
 {
@@ -234,4 +263,4 @@ Adds three buttons at the bottom of the Profiles tab: **Export all profiles**, *
 }
 ```
 
-Profile IDs are stripped on export and regenerated on import, so the same file can be safely imported on any device or browser without ID collisions.
+Profile IDs are stripped on export and regenerated on import, so the same file can be safely imported on any device or browser without ID collisions. Profiles whose name already exists in the destination are skipped — they are never overwritten.
