@@ -162,9 +162,11 @@
         </div>
         <div class="btn-row">
             <button class="save-btn" onclick="saveSemester()">Save GPA</button>
+            <button class="save-btn add-course-btn" onclick="openAddCourseModal()">Add Course / Retake</button>
             <button class="whatif-btn" id="whatifToggle" onclick="toggleWhatIf()">What-If</button>
             <button class="whatif-btn" style="grid-column:1/-1;border-color:#2a3a4a;color:var(--accent2);" onclick="openTargetModal()">🎯 Target GPA</button>
         </div>
+        <button id="addCourseStandalone" class="whatif-btn" onclick="openAddCourseModal()">+ Add Course / Retake</button>
         <div class="col-header"><span>Course</span><span>Cr</span><span>Grade</span></div>
         <div class="course-list" id="courseList"></div>
     </div>
@@ -189,6 +191,8 @@
                     <div class="ap-name" id="activeProfileBarName">None</div>
                 </div>
             </div>
+            <button class="view-transcript-btn" onclick="showScreen('transcript')">View Transcript</button>
+            <button class="new-profile-btn" style="background:var(--surface2);color:var(--accent2);border:1px solid var(--accent2);margin-top:10px;" onclick="toggleTheme()">Switch Theme</button>
             <button class="new-profile-btn" onclick="openNewProfileModal()">+ New Profile</button>
             <div class="profiles-label">Filter by Department</div>
             <div class="dept-tabs">

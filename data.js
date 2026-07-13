@@ -4,11 +4,14 @@ const GRADE_POINTS = {AA:4.0,BA:3.5,BB:3.0,CB:2.5,CC:2.0,DC:1.5,DD:1.0,FD:0.5,FF
 const ZERO_CR_GRADES = ["S","U","SKIP"];
 
 const SEM_ORDER = [
-  ["Year 1","Fall"],["Year 1","Spring"],
-  ["Year 2","Fall"],["Year 2","Spring"],
-  ["Year 3","Fall"],["Year 3","Spring"],
+  ["Year 1","Fall"],["Year 1","Spring"],["Year 1","Summer"],
+  ["Year 2","Fall"],["Year 2","Spring"],["Year 2","Summer"],
+  ["Year 3","Fall"],["Year 3","Spring"],["Year 3","Summer"],
   ["Year 4","Fall"],["Year 4","Spring"],
 ];
+
+// Fall=1, Spring=2, Summer=3 — used for labels like "Year 2 · Semester 3"
+function semNumber(sem){ return sem==='Fall'?1:sem==='Spring'?2:3; }
 
 // ── CNGB course data ──────────────────────────────────────────
 const CNGB_PRESETS = {

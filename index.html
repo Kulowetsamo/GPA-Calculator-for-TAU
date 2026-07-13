@@ -129,7 +129,7 @@
                 <option>Year 1</option><option>Year 2</option><option>Year 3</option><option>Year 4</option>
             </select>
             <select id="semSel" onchange="switchSemester()">
-                <option>Fall</option><option>Spring</option>
+                <option>Fall</option><option>Spring</option><option id="summerOpt">Summer</option>
             </select>
         </div>
     </div>
@@ -159,9 +159,11 @@
         </div>
         <div class="btn-row">
             <button class="save-btn" onclick="saveSemester()">Save GPA</button>
+            <button class="save-btn add-course-btn" onclick="openAddCourseModal()">Add Course / Retake</button>
             <button class="whatif-btn" id="whatifToggle" onclick="toggleWhatIf()">What-If</button>
             <button class="whatif-btn" style="grid-column:1/-1;border-color:#2a3a4a;color:var(--accent2);" onclick="openTargetModal()">🎯 Target GPA</button>
         </div>
+        <button id="addCourseStandalone" class="whatif-btn" onclick="openAddCourseModal()">+ Add Course / Retake</button>
         <div class="col-header"><span>Course</span><span>Cr</span><span>Grade</span></div>
         <div class="course-list" id="courseList"></div>
     </div>
@@ -185,6 +187,10 @@
                     <div class="ap-label">Active Profile</div>
                     <div class="ap-name" id="activeProfileBarName">None</div>
                 </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-bottom:10px;">
+                <button class="view-transcript-btn" style="flex:1;width:auto;margin:0;" onclick="showScreen('transcript')">View Transcript</button>
+                <button class="new-profile-btn" style="flex:1;width:auto;margin:0;background:var(--surface2);color:var(--accent2);border:1px solid var(--accent2);" onclick="toggleTheme()">Switch Theme</button>
             </div>
             <button class="new-profile-btn" onclick="openNewProfileModal()">+ New Profile</button>
             <div class="profiles-label">Filter by Department</div>
@@ -306,6 +312,7 @@
 <script src="storage.js" defer></script>
 <script src="calc.js" defer></script>
 <script src="ui.js" defer></script>
+<script src="export.js" defer></script>
 <script src="app.js" defer></script>
 
 <script>

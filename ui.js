@@ -21,7 +21,7 @@ function renderProfileList() {
   ids.forEach(id => {
     const p = profiles[id];
     const cnt = Object.keys(p.semHistory || {}).length;
-    const cum = calcCumulative(p.semHistory || {});
+    const cum = computeCumulative(p);
     const dept = p.dept || 'CNGB';
     const card = document.createElement('div');
     card.className = 'profile-card' + (id === activeProfileId ? ' is-active' : '');
@@ -439,7 +439,10 @@ function persist(key){
     const gradeEl=row.querySelector('.grade-select');
     const credEl =row.querySelector('.spin-val');
     const isElect=row.classList.contains('elective');
-    snap.push({grade:gradeEl?gradeEl.value:'',credits:isElect?parseInt(credEl.textContent):parseInt(row.dataset.credits),elective:isElect});
+    const isRetake=row.dataset.retake==='1';
+    const entry={grade:gradeEl?gradeEl.value:'',credits:isElect||isRetake?parseInt(credEl?.textContent||row.dataset.credits):parseInt(row.dataset.credits),elective:isElect};
+    if(isRetake){entry.retake=true;entry.name=row.dataset.courseName||row.querySelector('.course-name')?.textContent||'';}
+    snap.push(entry);
   });
   semData[activeDept+'|'+key]=snap;
   persistToProfile();
@@ -461,10 +464,101 @@ function loadCourses(){
     const idx=sorted.length+j;
     list.appendChild(makeCourseRow(name,saved?.[idx]?.credits||3,saved?.[idx]?.grade||'',true));
   });
+  const baseCount=sorted.length+elects.length;
+  let hasRetake=false;
+  saved?.slice(baseCount).forEach(entry=>{
+    if(entry?.retake&&entry.name){ list.appendChild(makeRetakeRow(entry.name,entry.credits||3,entry.grade||'')); hasRetake=true; }
+  });
+  const isSummer=key.split('|')[1]==='Summer';
+  if(isSummer && !sorted.length && !elects.length && !hasRetake){
+    const empty=document.createElement('div');
+    empty.className='no-summer-msg';
+    empty.textContent='No Summer Courses yet';
+    list.appendChild(empty);
+  }
   recalculate(); updateHistoryStrip(); updateCumulative();
   if(whatIfMode) _onWhatIfSemSwitch();
   else { document.querySelector('#calcScreen .banner:not(.cum)')?.classList.remove('whatif-active'); }
 }
+
+
+// ── Add Course / Retake ────────────────────────────────────────
+function openAddCourseModal(){
+  if(whatIfMode){ showToast('Exit What-If mode before adding a course'); return; }
+  let modal=document.getElementById('addCourseModal');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='addCourseModal';
+    modal.className='course-picker-overlay';
+    document.body.appendChild(modal);
+  }
+  const courses=[], seen=new Set();
+  SEM_ORDER.forEach(([year,sem])=>{
+    (getCoursePresets()[year+'|'+sem]||[]).forEach(([name,credits])=>{
+      if(credits>0&&!seen.has(name)){seen.add(name);courses.push({name,credits,semester:year+' · '+sem});}
+    });
+  });
+  modal.innerHTML=`
+    <div class="course-picker-modal" role="dialog" aria-modal="true">
+      <div class="course-picker-heading">
+        <div><h2>Add Course / Retake</h2><p>Latest grade replaces the previous attempt in cGPA.</p></div>
+        <button class="course-picker-close" type="button" aria-label="Close">×</button>
+      </div>
+      <input id="addCourseSearch" class="course-picker-search" placeholder="Search by course name or code" autocomplete="off">
+      <div id="addCourseList" class="course-picker-list"></div>
+      <div class="course-picker-footer"><span id="addCourseCount"></span><button class="modal-cancel" id="cancelAddCourse">Close</button></div>
+    </div>`;
+  const list=modal.querySelector('#addCourseList');
+  const count=modal.querySelector('#addCourseCount');
+  const addCourse=course=>{
+    document.getElementById('courseList').appendChild(makeRetakeRow(course.name,course.credits,''));
+    modal.classList.remove('open'); persist(activeKey); recalculate(); updateCumulative();
+    showToast('Course added as retake');
+  };
+  const render=query=>{
+    const q=query.trim().toLowerCase();
+    const matches=courses.filter(course=>course.name.toLowerCase().includes(q));
+    count.textContent=matches.length+' course'+(matches.length===1?'':'s');
+    list.innerHTML='';
+    if(!matches.length){list.innerHTML='<div class="course-picker-empty">No matching courses.</div>';return;}
+    matches.forEach(course=>{
+      const item=document.createElement('button');
+      item.type='button'; item.className='course-picker-item';
+      item.innerHTML='<span class="course-picker-name">'+course.name+'</span><span class="course-picker-meta">'+course.semester+' · '+course.credits+' credits</span><span class="course-picker-add">Add</span>';
+      item.onclick=()=>addCourse(course); list.appendChild(item);
+    });
+  };
+  modal.querySelector('#addCourseSearch').oninput=e=>render(e.target.value);
+  modal.querySelector('.course-picker-close').onclick=()=>modal.classList.remove('open');
+  modal.querySelector('#cancelAddCourse').onclick=()=>modal.classList.remove('open');
+  modal.onclick=e=>{if(e.target===modal)modal.classList.remove('open');};
+  render('');
+  modal.classList.add('open');
+  modal.querySelector('#addCourseSearch').focus();
+}
+
+function makeRetakeRow(name,credits,savedGrade){
+  const row=document.createElement('div');
+  row.className='course-row retake-row';
+  row.dataset.credits=credits; row.dataset.zeroCr='0'; row.dataset.retake='1'; row.dataset.courseName=name;
+  const nameEl=document.createElement('div');
+  nameEl.className='course-name'; nameEl.textContent=name+' (RETAKE)'; row.appendChild(nameEl);
+  const spin=document.createElement('div'); spin.className='credit-spin';
+  const minus=document.createElement('button'); minus.className='spin-btn'; minus.textContent='−';
+  const value=document.createElement('span'); value.className='spin-val'; value.textContent=credits;
+  const plus=document.createElement('button'); plus.className='spin-btn'; plus.textContent='+';
+  const adjust=delta=>{const next=parseInt(value.textContent)+delta;if(next>=1&&next<=9){value.textContent=next;row.dataset.credits=next;persist(activeKey);recalculate();}};
+  minus.onclick=()=>adjust(-1); plus.onclick=()=>adjust(1); spin.append(minus,value,plus); row.appendChild(spin);
+  const select=document.createElement('select'); select.className='grade-select'+(savedGrade?' has-grade':'');
+  select.appendChild(Object.assign(document.createElement('option'),{value:'',textContent:'—'}));
+  GRADES.filter(grade=>grade!=='SKIP').forEach(grade=>select.appendChild(Object.assign(document.createElement('option'),{value:grade,textContent:grade,selected:grade===savedGrade})));
+  select.onchange=()=>{select.classList.toggle('has-grade',!!select.value);row.classList.toggle('graded',!!select.value);persist(activeKey);recalculate();updateCumulative();};
+  row.appendChild(select);
+  const remove=document.createElement('button'); remove.className='delete-btn'; remove.textContent='×'; remove.title='Remove course';
+  remove.onclick=()=>{row.remove();persist(activeKey);recalculate();updateCumulative();}; row.appendChild(remove);
+  return row;
+}
+
 
 function makeCourseRow(name,credits,savedGrade,isElective){
   const isZero=(!isElective&&credits===0);
@@ -533,10 +627,10 @@ function updateHistoryStrip(){
     const key=year+'|'+sem;
     if(!semHistory[key]) return;
     const yIdx=['Year 1','Year 2','Year 3','Year 4'].indexOf(year)+1;
-    const semNum=sem==='Fall'?1:2;
+    const semNum=semNumber(sem);
     const chip=document.createElement('div');
     chip.className='chip'+(key===activeKey?' active-chip':'');
-    chip.innerHTML=`<div class="chip-label">Y${yIdx}S${semNum}</div><div class="chip-gpa">${semHistory[key].gpa.toFixed(2)}</div>`;
+    chip.innerHTML=`<div class="chip-label">${sem==='Summer'?'Y'+yIdx+' Summer':'Y'+yIdx+'S'+semNum}</div><div class="chip-gpa">${semHistory[key].gpa.toFixed(2)}</div>`;
     chip.onclick=()=>{
       const[y,s]=key.split('|');
       document.getElementById('yearSel').value=y;
@@ -561,9 +655,10 @@ function updateCumulative(wiGpa){
     banner.classList.remove('whatif-active');
     return;
   }
-  let pts=0,cr=0;
-  keys.forEach(k=>{pts+=semHistory[k].gpa*semHistory[k].credits;cr+=semHistory[k].credits;});
-  const realGpa=cr>0?pts/cr:0;
+  const profiles=getAllProfiles();
+  const profile=activeProfileId?profiles[activeProfileId]:null;
+  const cumulative=computeCumulative(profile);
+  const realGpa=cumulative?parseFloat(cumulative.val):0;
 
   // If a what-if cumulative GPA is provided, show it in purple instead
   const displayGpa = (wiGpa!=null) ? wiGpa : realGpa;
@@ -758,7 +853,7 @@ function renderTranscript(){
     const key=year+'|'+sem;
     const dataKey=activeDept+'|'+key;
     const yIdx=['Year 1','Year 2','Year 3','Year 4'].indexOf(year)+1;
-    const semN=sem==='Fall'?1:2;
+    const semN=semNumber(sem);
     const saved=semData[dataKey]||[];
     const preset=[...(presets[key]||[])].sort((a,b)=>b[1]-a[1]);
     const elects=electives[key]||[];
@@ -767,13 +862,16 @@ function renderTranscript(){
     semDiv.className='transcript-sem';
     const semH=document.createElement('div');
     semH.className='transcript-sem-header';
-    semH.innerHTML=`<span class="transcript-sem-title">Year ${yIdx} · Semester ${semN}</span><span class="transcript-sem-gpa">${semHistory[key].gpa.toFixed(2)} GPA</span>`;
+    semH.innerHTML=`<span class="transcript-sem-title">${sem==='Summer'?'Year '+yIdx+' · Summer School':'Year '+yIdx+' · Semester '+semN}</span><span class="transcript-sem-gpa">${semHistory[key].gpa.toFixed(2)} GPA</span>`;
     semDiv.appendChild(semH);
 
     const allCourses=[
       ...preset.map((c,i)=>({name:c[0],cr:c[1],grade:saved[i]?.grade||'',isZero:c[1]===0})),
       ...elects.map((name,j)=>{const idx=preset.length+j;return{name,cr:saved[idx]?.credits||3,grade:saved[idx]?.grade||'',isZero:false};})
     ];
+    saved.slice(preset.length+elects.length).forEach(extra=>{
+      if(extra?.retake&&extra.name) allCourses.push({name:extra.name,cr:extra.credits||3,grade:extra.grade||'',isZero:false});
+    });
 
     allCourses.forEach(({name,cr,grade,isZero})=>{
       if(grade==='SKIP') return;
@@ -796,7 +894,7 @@ function renderTranscript(){
     wrap.appendChild(semDiv);
   });
 
-  const cum=calcCumulative(semHistory);
+  const cum=activeProfileId&&profiles[activeProfileId]?computeCumulative(profiles[activeProfileId]):null;
   if(cum){
     const cumDiv=document.createElement('div');
     cumDiv.className='transcript-cum'+(parseFloat(cum.val)<2?' danger':'');
@@ -831,355 +929,12 @@ function renderTranscriptActions(wrap){
   wrap.appendChild(actions);
 }
 
-function buildShareText(){
-  const profiles=getAllProfiles();
-  const name=activeProfileId&&profiles[activeProfileId]?profiles[activeProfileId].name:'GPA';
-  const presets=getCoursePresets(); const electives=getElectivePresets();
-  const lines=[`${activeDept} GPA — ${name}`,``];
-  SEM_ORDER.filter(([y,s])=>semHistory[y+'|'+s]).forEach(([year,sem])=>{
-    const key=year+'|'+sem;
-    const dataKey=activeDept+'|'+key;
-    const yIdx=['Year 1','Year 2','Year 3','Year 4'].indexOf(year)+1;
-    const semN=sem==='Fall'?1:2;
-    const saved=semData[dataKey]||[];
-    const preset=[...(presets[key]||[])].sort((a,b)=>b[1]-a[1]);
-    const elects=electives[key]||[];
-    lines.push(`── Year ${yIdx} · Semester ${semN}  (GPA: ${semHistory[key].gpa.toFixed(2)}) ──`);
-    const allCourses=[
-      ...preset.map((c,i)=>({name:c[0],cr:c[1],grade:saved[i]?.grade||'',isZero:c[1]===0})),
-      ...elects.map((nm,j)=>{const idx=preset.length+j;return{name:nm,cr:saved[idx]?.credits||3,grade:saved[idx]?.grade||'',isZero:false};})
-    ];
-    allCourses.forEach(({name,cr,grade,isZero})=>{
-      if(grade==='SKIP') return;
-      const g=isZero?(grade||'—'):(grade||'FF');
-      lines.push(`${g.padEnd(3)}  ${isZero?'—  ':(String(cr)+'cr')}  ${name}`);
-    });
-    lines.push('');
-  });
-  const cum=calcCumulative(semHistory);
-  if(cum){ lines.push(`Cumulative GPA: ${cum.val}`); if(cum.honor) lines.push(cum.honor); }
-  return lines.join('\n');
-}
-
-async function shareTranscript() {
-  const text = buildShareText();
-  const shared = await shareText(text, 'GPA Transcript');
-  if (!shared) {
-    copyTranscript();
-  }
-}
-
-async function shareText(text, title) {
-  if (typeof Android !== 'undefined' && Android.shareText) {
-    try {
-      Android.shareText(text, title);
-      return true;
-    } catch (e) {
-      console.warn('Android shareText failed:', e);
-    }
-  }
-
-  if (navigator.share) {
-    try {
-      await navigator.share({ title, text });
-      return true;
-    } catch (e) {
-      if (e && e.name === 'AbortError') return true;
-      console.warn('Web share failed:', e);
-    }
-  }
-
-  return false;
-}
-
-function copyTranscript() {
-  const text = buildShareText();
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).then(() => showToast('Copied ✓', 2000));
-  } else {
-    const ta = document.createElement('textarea');
-    ta.value = text; document.body.appendChild(ta); ta.select();
-    document.execCommand('copy'); document.body.removeChild(ta);
-    showToast('Copied ✓', 2000);
-  }
-}
-
-// ── image share & save ─────────────────────────────
-window._lastExportDataUrl = null;
-window._lastExportName = null;
-
-// Toast helper (uses Android toast if available, otherwise grShowToast)
-function showToast(msg) {
-  if (typeof grShowToast === 'function') grShowToast(msg);
-  else if (typeof Android !== 'undefined' && Android.toast) Android.toast(msg);
-  else alert(msg);
-}
-
-// Share image – Android bridge if available, otherwise Web Share API or download fallback
-window.shareImage = async function() {
-  if (!window._lastExportDataUrl) {
-    showToast('No image to share. Export first.');
-    return;
-  }
-
-  if (typeof Android !== 'undefined' && Android.shareImage) {
-    try {
-      Android.shareImage(window._lastExportDataUrl, window._lastExportName || 'GPA_Transcript.png');
-      return;
-    } catch (e) {
-      console.warn('Android shareImage failed:', e);
-    }
-  }
-
-  try {
-    const response = await fetch(window._lastExportDataUrl);
-    const blob = await response.blob();
-    const file = new File([blob], window._lastExportName || 'GPA_Transcript.png', { type: 'image/png' });
-
-    if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
-      await navigator.share({ files: [file], title: 'GPA Transcript' });
-      return;
-    }
-  } catch (e) {
-    console.warn('Web share failed:', e);
-  }
-
-  downloadImg();
-};
-
-// Save image – Android bridge if available, otherwise download via anchor
-window.downloadImg = function() {
-  if (!window._lastExportDataUrl) {
-    showToast('No image to save');
-    return;
-  }
-
-  if (typeof Android !== 'undefined' && Android.saveImage) {
-    try {
-      Android.saveImage(window._lastExportDataUrl, window._lastExportName || 'GPA_Transcript.png');
-      return;
-    } catch (e) {
-      console.warn('Android saveImage failed:', e);
-    }
-  }
-
-  const a = document.createElement('a');
-  a.href = window._lastExportDataUrl;
-  a.download = window._lastExportName || 'GPA_Transcript.png';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  showToast('Saved ✓');
-};
-
-// Export as image – generates canvas and shows overlay with corrected button handlers
-window.exportAsImage = async function() {
-  const btn = document.getElementById('exportImgBtn');
-  if (btn) {
-    btn.textContent = 'Generating…';
-    btn.disabled = true;
-  }
-  try {
-    // Wait for fonts
-    if (document.fonts && document.fonts.ready) await document.fonts.ready;
-    if (document.fonts && document.fonts.load) {
-      await Promise.all([
-        document.fonts.load('10px "DM Mono"'),
-        document.fonts.load('bold 17px "DM Mono"'),
-        document.fonts.load('600 10px "DM Mono"'),
-      ]).catch(() => {});
-    }
-
-    const isLight = document.body.classList.contains('light');
-    const BG = isLight ? '#f5f5f0' : '#0f0f0f';
-    const SURF = isLight ? '#ffffff' : '#1a1a1a';
-    const BOR = isLight ? '#dddbd0' : '#2e2e2e';
-    const TEXT = isLight ? '#1a1a1a' : '#f0f0f0';
-    const ACC = isLight ? '#5a8a00' : '#c8f060';
-    const MUT = isLight ? '#888' : '#666';
-    const SAVBG = isLight ? '#eef5e8' : '#1a2e1a';
-    const FONT = '"DM Mono", ui-monospace, "Courier New", monospace';
-
-    const profiles = getAllProfiles();
-    const profileName = activeProfileId && profiles[activeProfileId] ? profiles[activeProfileId].name : '—';
-    const savedSems = SEM_ORDER.filter(([y, s]) => semHistory[y + '|' + s]);
-    const cum = calcCumulative(semHistory);
-    const presets = getCoursePresets();
-    const electives = getElectivePresets();
-
-    const SC = 2, W = 380, PAD = 22, INNER = W - PAD * 2;
-
-    const semBlocks = [];
-    savedSems.forEach(([year, sem]) => {
-      const key = year + '|' + sem;
-      const dataKey = activeDept + '|' + key;
-      const yIdx = ['Year 1', 'Year 2', 'Year 3', 'Year 4'].indexOf(year) + 1;
-      const semN = sem === 'Fall' ? 1 : 2;
-      const savedD = semData[dataKey] || [];
-      const preset = [...(presets[key] || [])].sort((a, b) => b[1] - a[1]);
-      const elects = electives[key] || [];
-      const courses = [
-        ...preset.map((c, i) => ({ name: c[0], cr: c[1], grade: savedD[i]?.grade || '', isZero: c[1] === 0 })),
-        ...elects.map((nm, j) => {
-          const idx = preset.length + j;
-          return { name: nm, cr: savedD[idx]?.credits || 3, grade: savedD[idx]?.grade || '', isZero: false };
-        }),
-      ].filter(c => c.grade !== 'SKIP');
-      semBlocks.push({ yIdx, semN, key, courses });
-    });
-
-    let H = PAD + 14 + 6 + 22 + 10;
-    semBlocks.forEach(b => { H += 18 + 7 + b.courses.length * (28 + 4) + 16; });
-    if (cum) H += 54 + 12;
-    H += 20 + PAD;
-
-    const MAX_H = 16384;
-    if (H * SC > MAX_H) {
-      showToast('Too many semesters to export as image');
-      if (btn) { btn.textContent = 'Export as Image'; btn.disabled = false; }
-      return;
-    }
-
-    const canvas = document.createElement('canvas');
-    canvas.width = W * SC;
-    canvas.height = H * SC;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      showToast('Canvas not supported');
-      if (btn) { btn.textContent = 'Export as Image'; btn.disabled = false; }
-      return;
-    }
-    ctx.scale(SC, SC);
-
-    function rr(x, y, w, h, r, fill, stroke, sw) {
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.lineTo(x + w - r, y);
-      ctx.arcTo(x + w, y, x + w, y + r, r);
-      ctx.lineTo(x + w, y + h - r);
-      ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
-      ctx.lineTo(x + r, y + h);
-      ctx.arcTo(x, y + h, x, y + h - r, r);
-      ctx.lineTo(x, y + r);
-      ctx.arcTo(x, y, x + r, y, r);
-      ctx.closePath();
-      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
-      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = sw || 1; ctx.stroke(); }
-    }
-
-    function trunc(str, maxW) {
-      if (ctx.measureText(str).width <= maxW) return str;
-      let short = str;
-      while (short.length > 1 && ctx.measureText(short + '…').width > maxW) short = short.slice(0, -1);
-      return short + '…';
-    }
-
-    ctx.fillStyle = BG;
-    ctx.fillRect(0, 0, W, H);
-    let y = PAD;
-
-    ctx.font = `600 10px ${FONT}`;
-    ctx.fillStyle = ACC;
-    ctx.fillText(activeDept, PAD, y + 11);
-    ctx.font = `10px ${FONT}`;
-    ctx.fillStyle = MUT;
-    const sub = 'GPA Calculator';
-    ctx.fillText(sub, W - PAD - ctx.measureText(sub).width, y + 11);
-    y += 14 + 6;
-
-    ctx.font = `bold 17px ${FONT}`;
-    ctx.fillStyle = TEXT;
-    ctx.fillText(trunc(profileName, INNER), PAD, y + 17);
-    y += 22 + 10;
-
-    semBlocks.forEach(({ yIdx, semN, key, courses }) => {
-      ctx.font = `500 9px ${FONT}`;
-      ctx.fillStyle = MUT;
-      ctx.fillText('YEAR ' + yIdx + ' · SEM ' + semN, PAD, y + 12);
-      ctx.font = `bold 13px ${FONT}`;
-      ctx.fillStyle = ACC;
-      const gStr = semHistory[key].gpa.toFixed(2);
-      ctx.fillText(gStr, W - PAD - ctx.measureText(gStr).width, y + 12);
-      y += 18 + 7;
-      courses.forEach(({ name, cr, grade, isZero }) => {
-        const g = isZero ? (grade === 'S' ? 'S' : grade === 'U' ? 'U' : '—') : (grade || 'FF');
-        const gC = isZero ? (grade === 'S' ? '#80e080' : grade === 'U' ? '#e08080' : MUT) : (grade ? ACC : '#c06060');
-        rr(PAD, y, INNER, 26, 5, SURF, BOR, 0.8);
-        ctx.font = `bold 12px ${FONT}`;
-        ctx.fillStyle = gC;
-        ctx.fillText(g, PAD + 10, y + 17);
-        ctx.font = `10px ${FONT}`;
-        ctx.fillStyle = MUT;
-        ctx.fillText(isZero ? '—' : cr + 'cr', PAD + 46, y + 17);
-        ctx.font = `11px ${FONT}`;
-        ctx.fillStyle = TEXT;
-        ctx.fillText(trunc(name, INNER - 86 - 8), PAD + 84, y + 17);
-        y += 28 + 4;
-      });
-      y += 16;
-    });
-
-    if (cum) {
-      rr(PAD, y, INNER, 50, 8, SAVBG, '#2a3a1a', 1);
-      ctx.font = `500 9px ${FONT}`;
-      ctx.fillStyle = MUT;
-      ctx.fillText('CUMULATIVE GPA', PAD + 12, y + 16);
-      if (cum.honor) {
-        ctx.font = `11px ${FONT}`;
-        ctx.fillStyle = ACC;
-        ctx.fillText(cum.honor, PAD + 12, y + 34);
-      }
-      ctx.font = `bold 24px ${FONT}`;
-      ctx.fillStyle = ACC;
-      ctx.fillText(cum.val, W - PAD - 12 - ctx.measureText(cum.val).width, y + 36);
-      y += 54 + 12;
-    }
-
-    ctx.font = `9px ${FONT}`;
-    ctx.fillStyle = MUT;
-    const foot = 'Generated with GPA Calculator';
-    ctx.fillText(foot, W / 2 - ctx.measureText(foot).width / 2, y + 13);
-
-    const dataUrl = canvas.toDataURL('image/png');
-    window._lastExportDataUrl = dataUrl;
-    window._lastExportName = activeDept + '_GPA_' + profileName.replace(/\s+/g, '_') + '.png';
-
-    const overlayImg = document.getElementById('overlayImg');
-    if (overlayImg) overlayImg.src = dataUrl;
-    const overlay = document.getElementById('imgOverlay');
-    if (overlay) {
-      overlay.style.display = 'flex';
-      // Force the overlay buttons to call our Android‑only functions
-      setTimeout(() => {
-        const btns = overlay.querySelectorAll('button');
-        for (let i = 0; i < btns.length; i++) {
-          const txt = btns[i].innerText;
-          if (txt === 'Share') btns[i].onclick = window.shareImage;
-          else if (txt === 'Save') btns[i].onclick = window.downloadImg;
-        }
-      }, 50);
-    }
-    showToast('Image ready – use Share or Save');
-  } catch (e) {
-    console.error('Export failed:', e);
-    showToast('Export failed: ' + (e.message || 'unknown error'));
-  } finally {
-    if (btn) {
-      btn.textContent = 'Export as Image';
-      btn.disabled = false;
-    }
-  }
-};
-
-// Close overlay
-window.closeImgOverlay = function() {
-  const overlay = document.getElementById('imgOverlay');
-  if (overlay) overlay.style.display = 'none';
-};
+// buildShareText(), shareTranscript(), copyTranscript(), and the
+// image export/share/save logic now live in export.js.
 
 // ── swipe ─────────────────────────────────────────────────────
 (function(){
-  const SEM_FLAT=["Year 1|Fall","Year 1|Spring","Year 2|Fall","Year 2|Spring","Year 3|Fall","Year 3|Spring","Year 4|Fall","Year 4|Spring"];
+  const SEM_FLAT=SEM_ORDER.map(([y,s])=>y+'|'+s);
   function currentFlatIdx(){ return SEM_FLAT.indexOf(document.getElementById('yearSel').value+'|'+document.getElementById('semSel').value); }
   function goToFlat(idx){
     if(idx<0||idx>=SEM_FLAT.length) return;

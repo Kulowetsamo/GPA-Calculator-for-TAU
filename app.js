@@ -79,13 +79,26 @@ function onDeptChange(){
   if(window.updateSwipeDots) updateSwipeDots();
 }
 
+function updateSummerOptionState(){
+  const yearSel=document.getElementById('yearSel');
+  const semSel=document.getElementById('semSel');
+  const summerOpt=document.getElementById('summerOpt');
+  if(!yearSel||!semSel||!summerOpt) return;
+  const isYear4=yearSel.value==='Year 4';
+  summerOpt.disabled=isYear4;
+  summerOpt.hidden=isYear4;
+  if(isYear4 && semSel.value==='Summer') semSel.value='Fall';
+}
+
 function onYearChange(){
   document.getElementById('semSel').value='Fall';
+  updateSummerOptionState();
   switchSemester();
 }
 
 function switchSemester(){
   persist(activeKey);
+  updateSummerOptionState();
   activeKey=currentKey();
   loadCourses();
   if(window.updateSwipeDots) updateSwipeDots();
@@ -131,6 +144,7 @@ window.handleBackButton = function(){
 
 loadTheme();
 loadActiveProfile();
+updateSummerOptionState();
 loadCourses();
 updateSwipeDots();
 history.replaceState({screen:'calc'},'','');

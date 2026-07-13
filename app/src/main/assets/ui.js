@@ -21,7 +21,7 @@ function renderProfileList() {
   ids.forEach(id => {
     const p = profiles[id];
     const cnt = Object.keys(p.semHistory || {}).length;
-    const cum = calcCumulative(p.semHistory || {});
+    const cum = computeCumulative(p);
     const dept = p.dept || 'CNGB';
     const card = document.createElement('div');
     card.className = 'profile-card' + (id === activeProfileId ? ' is-active' : '');
@@ -409,7 +409,10 @@ function persist(key){
     const gradeEl=row.querySelector('.grade-select');
     const credEl =row.querySelector('.spin-val');
     const isElect=row.classList.contains('elective');
-    snap.push({grade:gradeEl?gradeEl.value:'',credits:isElect?parseInt(credEl.textContent):parseInt(row.dataset.credits),elective:isElect});
+    const isRetake=row.dataset.retake==='1';
+    const entry={grade:gradeEl?gradeEl.value:'',credits:isElect||isRetake?parseInt(credEl?.textContent||row.dataset.credits):parseInt(row.dataset.credits),elective:isElect};
+    if(isRetake){entry.retake=true;entry.name=row.dataset.courseName||row.querySelector('.course-name')?.textContent||'';}
+    snap.push(entry);
   });
   semData[activeDept+'|'+key]=snap;
   persistToProfile();
@@ -431,10 +434,93 @@ function loadCourses(){
     const idx=sorted.length+j;
     list.appendChild(makeCourseRow(name,saved?.[idx]?.credits||3,saved?.[idx]?.grade||'',true));
   });
+  const baseCount=sorted.length+elects.length;
+  saved?.slice(baseCount).forEach(entry=>{
+    if(entry?.retake&&entry.name) list.appendChild(makeRetakeRow(entry.name,entry.credits||3,entry.grade||''));
+  });
   recalculate(); updateHistoryStrip(); updateCumulative();
   if(whatIfMode) _onWhatIfSemSwitch();
   else { document.querySelector('#calcScreen .banner:not(.cum)')?.classList.remove('whatif-active'); }
 }
+
+
+// ── Add Course / Retake ────────────────────────────────────────
+function openAddCourseModal(){
+  if(whatIfMode){ showToast('Exit What-If mode before adding a course'); return; }
+  let modal=document.getElementById('addCourseModal');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='addCourseModal';
+    modal.className='course-picker-overlay';
+    document.body.appendChild(modal);
+  }
+  const courses=[], seen=new Set();
+  SEM_ORDER.forEach(([year,sem])=>{
+    (getCoursePresets()[year+'|'+sem]||[]).forEach(([name,credits])=>{
+      if(credits>0&&!seen.has(name)){seen.add(name);courses.push({name,credits,semester:year+' · '+sem});}
+    });
+  });
+  modal.innerHTML=`
+    <div class="course-picker-modal" role="dialog" aria-modal="true">
+      <div class="course-picker-heading">
+        <div><h2>Add Course / Retake</h2><p>Latest grade replaces the previous attempt in cGPA.</p></div>
+        <button class="course-picker-close" type="button" aria-label="Close">×</button>
+      </div>
+      <input id="addCourseSearch" class="course-picker-search" placeholder="Search by course name or code" autocomplete="off">
+      <div id="addCourseList" class="course-picker-list"></div>
+      <div class="course-picker-footer"><span id="addCourseCount"></span><button class="modal-cancel" id="cancelAddCourse">Close</button></div>
+    </div>`;
+  const list=modal.querySelector('#addCourseList');
+  const count=modal.querySelector('#addCourseCount');
+  const addCourse=course=>{
+    document.getElementById('courseList').appendChild(makeRetakeRow(course.name,course.credits,''));
+    modal.classList.remove('open'); persist(activeKey); recalculate(); updateCumulative();
+    showToast('Course added as retake');
+  };
+  const render=query=>{
+    const q=query.trim().toLowerCase();
+    const matches=courses.filter(course=>course.name.toLowerCase().includes(q));
+    count.textContent=matches.length+' course'+(matches.length===1?'':'s');
+    list.innerHTML='';
+    if(!matches.length){list.innerHTML='<div class="course-picker-empty">No matching courses.</div>';return;}
+    matches.forEach(course=>{
+      const item=document.createElement('button');
+      item.type='button'; item.className='course-picker-item';
+      item.innerHTML='<span class="course-picker-name">'+course.name+'</span><span class="course-picker-meta">'+course.semester+' · '+course.credits+' credits</span><span class="course-picker-add">Add</span>';
+      item.onclick=()=>addCourse(course); list.appendChild(item);
+    });
+  };
+  modal.querySelector('#addCourseSearch').oninput=e=>render(e.target.value);
+  modal.querySelector('.course-picker-close').onclick=()=>modal.classList.remove('open');
+  modal.querySelector('#cancelAddCourse').onclick=()=>modal.classList.remove('open');
+  modal.onclick=e=>{if(e.target===modal)modal.classList.remove('open');};
+  render('');
+  modal.classList.add('open');
+  modal.querySelector('#addCourseSearch').focus();
+}
+
+function makeRetakeRow(name,credits,savedGrade){
+  const row=document.createElement('div');
+  row.className='course-row retake-row';
+  row.dataset.credits=credits; row.dataset.zeroCr='0'; row.dataset.retake='1'; row.dataset.courseName=name;
+  const nameEl=document.createElement('div');
+  nameEl.className='course-name'; nameEl.textContent=name+' (RETAKE)'; row.appendChild(nameEl);
+  const spin=document.createElement('div'); spin.className='credit-spin';
+  const minus=document.createElement('button'); minus.className='spin-btn'; minus.textContent='−';
+  const value=document.createElement('span'); value.className='spin-val'; value.textContent=credits;
+  const plus=document.createElement('button'); plus.className='spin-btn'; plus.textContent='+';
+  const adjust=delta=>{const next=parseInt(value.textContent)+delta;if(next>=1&&next<=9){value.textContent=next;row.dataset.credits=next;persist(activeKey);recalculate();}};
+  minus.onclick=()=>adjust(-1); plus.onclick=()=>adjust(1); spin.append(minus,value,plus); row.appendChild(spin);
+  const select=document.createElement('select'); select.className='grade-select'+(savedGrade?' has-grade':'');
+  select.appendChild(Object.assign(document.createElement('option'),{value:'',textContent:'—'}));
+  GRADES.filter(grade=>grade!=='SKIP').forEach(grade=>select.appendChild(Object.assign(document.createElement('option'),{value:grade,textContent:grade,selected:grade===savedGrade})));
+  select.onchange=()=>{select.classList.toggle('has-grade',!!select.value);row.classList.toggle('graded',!!select.value);persist(activeKey);recalculate();updateCumulative();};
+  row.appendChild(select);
+  const remove=document.createElement('button'); remove.className='delete-btn'; remove.textContent='×'; remove.title='Remove course';
+  remove.onclick=()=>{row.remove();persist(activeKey);recalculate();updateCumulative();}; row.appendChild(remove);
+  return row;
+}
+
 
 function makeCourseRow(name,credits,savedGrade,isElective){
   const isZero=(!isElective&&credits===0);
@@ -531,9 +617,10 @@ function updateCumulative(wiGpa){
     banner.classList.remove('whatif-active');
     return;
   }
-  let pts=0,cr=0;
-  keys.forEach(k=>{pts+=semHistory[k].gpa*semHistory[k].credits;cr+=semHistory[k].credits;});
-  const realGpa=cr>0?pts/cr:0;
+  const profiles=getAllProfiles();
+  const profile=activeProfileId?profiles[activeProfileId]:null;
+  const cumulative=computeCumulative(profile);
+  const realGpa=cumulative?parseFloat(cumulative.val):0;
 
   // If a what-if cumulative GPA is provided, show it in purple instead
   const displayGpa = (wiGpa!=null) ? wiGpa : realGpa;
@@ -744,6 +831,9 @@ function renderTranscript(){
       ...preset.map((c,i)=>({name:c[0],cr:c[1],grade:saved[i]?.grade||'',isZero:c[1]===0})),
       ...elects.map((name,j)=>{const idx=preset.length+j;return{name,cr:saved[idx]?.credits||3,grade:saved[idx]?.grade||'',isZero:false};})
     ];
+    saved.slice(preset.length+elects.length).forEach(extra=>{
+      if(extra?.retake&&extra.name) allCourses.push({name:extra.name,cr:extra.credits||3,grade:extra.grade||'',isZero:false});
+    });
 
     allCourses.forEach(({name,cr,grade,isZero})=>{
       if(grade==='SKIP') return;
@@ -766,7 +856,7 @@ function renderTranscript(){
     wrap.appendChild(semDiv);
   });
 
-  const cum=calcCumulative(semHistory);
+  const cum=activeProfileId&&profiles[activeProfileId]?computeCumulative(profiles[activeProfileId]):null;
   if(cum){
     const cumDiv=document.createElement('div');
     cumDiv.className='transcript-cum'+(parseFloat(cum.val)<2?' danger':'');

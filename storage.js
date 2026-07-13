@@ -45,11 +45,45 @@ function persistToProfile(){
   saveAllProfiles(profiles);
 }
 
-function calcCumulative(sh){
-  const keys=Object.keys(sh);
-  if(!keys.length) return null;
+function computeCumulative(profile){
+  if(!profile) return null;
+  const profileSemData=profile.semData||{};
+  const profileSemHistory=profile.semHistory||{};
+  const dept=profile.dept||'CNGB';
+  const presets=dept==='IENG'?IENG_PRESETS:dept==='FE'?FE_PRESETS:CNGB_PRESETS;
+  const electives=dept==='IENG'?IENG_ELECTIVES:dept==='FE'?FE_ELECTIVES:CNGB_ELECTIVES;
+  const latestCourses=new Map();
+
+  for(const [year,sem] of SEM_ORDER){
+    const key=year+'|'+sem;
+    if(!profileSemHistory[key]) continue;
+    const saved=profileSemData[dept+'|'+key]||[];
+    const required=[...(presets[key]||[])].sort((a,b)=>b[1]-a[1]);
+    const courses=[
+      ...required.map(([name,credits])=>({name,credits})),
+      ...(electives[key]||[]).map(name=>({name,credits:3}))
+    ];
+    courses.forEach((course,index)=>{
+      const entry=saved[index]||{};
+      const grade=entry.grade||'';
+      if(grade&&grade!=='SKIP'){
+        latestCourses.set(course.name,{credits:entry.credits!==undefined?entry.credits:course.credits,grade});
+      }
+    });
+    // Retake rows are saved after the regular course rows. Supporting them also
+    // keeps cGPA compatible with profiles created in the Instructor version.
+    saved.slice(courses.length).forEach(entry=>{
+      if(entry?.retake&&entry.name&&entry.grade&&entry.grade!=='SKIP'){
+        latestCourses.set(entry.name,{credits:entry.credits||3,grade:entry.grade});
+      }
+    });
+  }
+
   let pts=0,cr=0;
-  keys.forEach(k=>{pts+=sh[k].gpa*sh[k].credits;cr+=sh[k].credits;});
+  latestCourses.forEach(({credits,grade})=>{
+    pts+=(GRADE_POINTS[grade]??0)*credits;
+    cr+=credits;
+  });
   if(!cr) return null;
   const gpa=pts/cr;
   let honor='';
@@ -57,4 +91,11 @@ function calcCumulative(sh){
   else if(gpa>=3.0) honor='✦ Honor';
   else if(gpa<2.0)  honor='⚠ Below 2.0';
   return {val:gpa.toFixed(2),honor};
+}
+
+// Compatibility helper for transcript, target, and export code.
+function calcCumulative(){
+  const profiles=getAllProfiles();
+  const id=getActiveProfileId();
+  return id&&profiles[id]?computeCumulative(profiles[id]):null;
 }
