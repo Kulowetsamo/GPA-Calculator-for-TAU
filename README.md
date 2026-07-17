@@ -27,25 +27,21 @@ The app runs in any modern browser and can also be packaged as a native Android 
 ## Features
 
 All mandatory and elective courses for three departments are included — just select your department, year, and semester; the course list updates automatically.
-
+ 
 The GPA recalculates on every grade change. The status bar shows your term GPA, earned credits, and cumulative GPA including honors status (High Honor ★, Honor ✦, or warning ⚠).
-
+ 
 **Semester swipe** — swipe left or right on the calculator screen (or tap the dot indicators) to move between semesters without touching the dropdowns.
-
-**What-if Mode** temporarily overrides any grade to see how it would affect your cumulative GPA without saving the changes.
-
-**Target GPA Calculator** calculates the average GPA needed in the next semester to reach or maintain a target.
-
+ 
 **Profiles** — create separate profiles (e.g. one per student or department). Each profile stores all grades, GPA history, and department independently. Profiles can be exported as JSON and shared or imported on another device.
-
+ 
 **Profile filter tabs** on the Profiles screen let you filter the list by department (ALL / CNGB / IENG / FE).
-
+ 
 **Transcript view** — a clean, printable transcript showing saved semester GPAs and cumulative progress. Can be copied as text, shared via the system share sheet, or exported as a PNG image.
-
+ 
 **Grade Calculator** — a standalone tool for computing a final course score from weighted components. Includes templates, a customisable grading scale, scale presets, and export/import for both templates and scales.
-
+ 
 **"What do I need?" panel** — displayed below the Grade Calc result, it shows the exact score needed on the first blank component to reach any target letter grade, and a full table from AA to FF.
-
+ 
 Toggle between **dark and light themes** that automatically follow the system preference.
 
 ---
@@ -106,8 +102,8 @@ The Android app loads `index.html` from the assets folder. Any changes to HTML/C
 ├── gr_calc.js          — Grade Calc engine and screen controller (initGradeScreen)
 ├── storage.js          — GPA profile storage helpers; semData / semHistory state
 ├── calc.js             — GPA calculation, What-if mode, Target GPA
-├── ui.js               — rendering (course rows, transcript, profile list),
-│                         export/import for profiles, swipe navigation, toasts
+├── ui.js               — rendering (course rows, transcript, profile list), swipe navigation, toasts
+├── export.js           — transcript image generation and share/save/copy               
 └── app.js              — screen routing, semester navigation, Android back-button bridge
 ```
 
@@ -128,22 +124,12 @@ gr_storage.js → gr_calc.js → data.js → storage.js → calc.js → ui.js �
 ### GPA Calculator
 
 1. **Choose your department and semester** — use the dropdowns at the top of the Calculator screen. The course list updates automatically. The department selector is locked while a profile is active (department is set per profile).
-
 2. **Navigate semesters** — use the Year/Semester dropdowns, or swipe left/right on the calculator screen. The dot strip at the bottom shows your position across all eight semesters.
-
 3. **Enter grades** — select a letter grade from the dropdown on each course row. The semester GPA and credits update instantly. Courses graded `SKIP` or `S/U` (zero-credit) are excluded.
-
 4. **Save the semester** — press **Save GPA**. This writes the semester GPA and credit count into the profile's history and updates the cumulative GPA banner.
-
 5. **Create a profile** *(optional)* — go to the **Profiles** tab and tap **+ New Profile**. Give it a name and choose a department. Once active, all saved data is tied to that profile.
-
-6. **Use What-If mode** — tap **What-If** to enter temporary grade overrides. The cumulative GPA updates live; changes are not saved. Exit What-If to return to real grades.
-
-7. **Set a target GPA** — tap **Target GPA**, enter your desired cumulative GPA, and the tool will calculate what you need next semester.
-
-8. **View and share your transcript** — switch to the **View** tab. Use the action buttons to copy a text summary, share via the system share sheet, or export the transcript as a PNG image.
-
-9. **Export or import profiles** — at the bottom of the **Profiles** tab, use the export buttons to download all profiles or just the active one as a `.json` file. Tap **Import** to load a file or paste JSON directly.
+6. **View and share your transcript** — switch to the **View** tab. Use the action buttons to copy a text summary, share via the system share sheet, or export the transcript as a PNG image.
+7. **Export or import profiles** — at the bottom of the **Profiles** tab, use the export buttons to download all profiles or just the active one as a `.json` file. Tap **Import** to load a file or paste JSON directly.
 
 ---
 
