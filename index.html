@@ -108,6 +108,37 @@
         body.light .ei-preview-skip { color: #7a6f50; opacity: 0.85; }
         body.light .ei-preview-error { color: #a00; }
         body.light .ei-preview-summary { border-top-color: #ddd; }
+
+        /* Exams tab */
+        .ex-header { padding: 20px 16px 4px; }
+        .ex-title { font-size: 18px; font-weight: 600; color: var(--text); }
+        .ex-sub { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+        .ex-empty { padding: 40px 24px; text-align: center; }
+        .ex-empty-title { font-size: 14px; font-weight: 600; color: var(--text); }
+        .ex-empty-sub { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+        .ex-group-list { display: flex; flex-direction: column; gap: 12px; padding: 0 16px 24px; }
+        .ex-group { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+        .ex-group-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+        .ex-group-name { font-size: 14px; font-weight: 600; color: var(--text); }
+        .ex-group-sem { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
+        .ex-group-avg { text-align: right; flex-shrink: 0; }
+        .ex-avg-pct { font-size: 16px; font-weight: 700; color: var(--accent2); font-family: 'DM Mono', monospace; }
+        .ex-avg-letter { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+        .ex-entries { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+        .ex-entry { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: var(--surface2); border-radius: 8px; font-size: 12px; }
+        .ex-entry-main { display: flex; align-items: center; gap: 8px; }
+        .ex-entry-type { font-weight: 600; color: var(--text); }
+        .ex-entry-score { font-family: 'DM Mono', monospace; color: var(--accent2); }
+        .ex-entry-weight { font-family: 'DM Mono', monospace; color: var(--muted); font-size: 10px; }
+        .ex-entry-sub { display: flex; align-items: center; gap: 8px; }
+        .ex-entry-date { font-family: 'DM Mono', monospace; color: var(--muted); font-size: 10px; }
+        .ex-del-btn { background: none; border: none; color: #e05050; font-size: 16px; line-height: 1; cursor: pointer; padding: 0 2px; }
+        .ex-apply-btn { width: 100%; margin-top: 12px; background: none; border: 1px solid var(--accent2); color: var(--accent2); border-radius: 8px; padding: 10px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer; }
+        .ex-apply-btn:active { background: var(--accent2); color: #fff; }
+        .ex-modal-select { width: 100%; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: 'DM Sans', sans-serif; font-size: 14px; margin-bottom: 12px; }
+        .ex-modal-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .ex-modal-row input { flex: 1; min-width: 0; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 12px 10px; font-family: 'DM Sans', sans-serif; font-size: 14px; }
+        .ex-modal-slash { color: var(--muted); font-family: 'DM Mono', monospace; }
     </style>
 </head>
 <body>
@@ -206,6 +237,11 @@
     </div>
 </div>
 
+<!-- EXAMS -->
+<div class="screen" id="examsScreen">
+    <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;" id="examScreenScroll"></div>
+</div>
+
 <!-- TRANSCRIPT -->
 <div class="screen" id="transcriptScreen">
     <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;">
@@ -226,6 +262,10 @@
     <button class="nav-btn" id="navTranscript" onclick="showScreen('transcript')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         View
+    </button>
+    <button class="nav-btn" id="navExams" onclick="showScreen('exams')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg>
+        Exams
     </button>
     <button class="nav-btn" id="navProfiles" onclick="showScreen('profiles')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
@@ -313,6 +353,7 @@
 <script src="calc.js" defer></script>
 <script src="ui.js" defer></script>
 <script src="export.js" defer></script>
+<script src="exams.js" defer></script>
 <script src="app.js" defer></script>
 
 <script>

@@ -1,7 +1,50 @@
 // ── grade systems ─────────────────────────────────────────────
-const GRADES       = ["AA","BA","BB","CB","CC","DC","DD","FD","FF","SKIP"];
-const GRADE_POINTS = {AA:4.0,BA:3.5,BB:3.0,CB:2.5,CC:2.0,DC:1.5,DD:1.0,FD:0.5,FF:0.0};
+const GRADES = [
+  "AA","BA+","BA","BB+","BB","CB+","CB","CC+","CC","DC+","DC","DD+","DD",
+  "FD","FF",
+  "A1","A2","B1","B2","C1","C2*","D1*","D2*","F3","F2","F1",
+  "G","K","H","M","SKIP"
+];
+const GRADE_POINTS = {
+  AA: 4.0,
+  "BA+": 3.75,
+  BA: 3.5,
+  "BB+": 3.25,
+  BB: 3.0,
+  "CB+": 2.75,
+  CB: 2.5,
+  "CC+": 2.25,
+  CC: 2.0,
+  "DC+": 1.75,
+  DC: 1.5,
+  "DD+": 1.25,
+  DD: 1.0,
+  FD: 0.5,
+  FF: 0.0,
+  A1: 4.0,
+  A2: 3.5,
+  B1: 3.0,
+  B2: 2.5,
+  C1: 2.0,
+  "C2*": 1.5,
+  "D1*": 1.0,
+  "D2*": 0.5,
+  F3: 0.0,
+  F2: 0.0,
+  F1: 0.0,
+  G: 0.0,
+  K: 0.0,
+  H: 0.0,
+  M: 0.0,
+};
 const ZERO_CR_GRADES = ["S","U","SKIP"];
+
+const DEPT_GRADE_CODES = {
+  CNGB: ["AA","BA","BB","CB","CC","DC","DD","FD","FF","SKIP"],
+  IENG: ["AA","BA+","BA","BB+","BB","CB+","CB","CC+","CC","DC+","DC","DD+","DD","FF","SKIP"],
+  FE: ["A1","A2","B1","B2","C1","C2*","D1*","D2*","F3","F2","F1","G","K","H","M","SKIP"],
+};
+function getGradeCodesForDept(){ return DEPT_GRADE_CODES[activeDept] || DEPT_GRADE_CODES.CNGB; }
 
 const SEM_ORDER = [
   ["Year 1","Fall"],["Year 1","Spring"],["Year 1","Summer"],

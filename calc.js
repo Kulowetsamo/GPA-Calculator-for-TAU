@@ -16,6 +16,7 @@ function flushPendingSave(){
   document.getElementById('semSel').value  = sem;
   loadCourses();   // renders grades from semData
   saveSemester();  // computes GPA and saves to semHistory
+  if(typeof grSyncScaleToDept==='function') grSyncScaleToDept();
   showScreen('calc');
 }
 

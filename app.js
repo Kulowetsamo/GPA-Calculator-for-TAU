@@ -7,7 +7,7 @@ function showScreen(name,fromPopState){
   if(ov) ov.style.display='none';
 
   // Close any open modals
-  ['newProfileModal','deleteModal','resetModal','renameModal','targetModal'].forEach(id=>{
+  ['newProfileModal','deleteModal','resetModal','renameModal','targetModal','addExamModal'].forEach(id=>{
     document.getElementById(id)?.classList.remove('open');
   });
 
@@ -15,13 +15,16 @@ function showScreen(name,fromPopState){
   document.getElementById('gradeScreen').classList.toggle('active',name==='grade');
   document.getElementById('transcriptScreen').classList.toggle('active',name==='transcript');
   document.getElementById('profileScreen').classList.toggle('active',name==='profiles');
+  document.getElementById('examsScreen')?.classList.toggle('active',name==='exams');
   document.getElementById('navCalc').classList.toggle('active',name==='calc');
   document.getElementById('navGrade').classList.toggle('active',name==='grade');
   document.getElementById('navTranscript').classList.toggle('active',name==='transcript');
   document.getElementById('navProfiles').classList.toggle('active',name==='profiles');
+  document.getElementById('navExams')?.classList.toggle('active',name==='exams');
   if(name==='profiles')   renderProfileList();
   if(name==='transcript') renderTranscript();
   if(name==='grade')      initGradeScreen();
+  if(name==='exams')      renderExamsScreen();
 
   if(!fromPopState){
     if(name==='calc'){
@@ -77,6 +80,7 @@ function onDeptChange(){
   persistToProfile();
   loadCourses();
   if(window.updateSwipeDots) updateSwipeDots();
+  if(typeof grSyncScaleToDept==='function') grSyncScaleToDept();
 }
 
 function updateSummerOptionState(){

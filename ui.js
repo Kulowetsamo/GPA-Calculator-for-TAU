@@ -551,7 +551,7 @@ function makeRetakeRow(name,credits,savedGrade){
   minus.onclick=()=>adjust(-1); plus.onclick=()=>adjust(1); spin.append(minus,value,plus); row.appendChild(spin);
   const select=document.createElement('select'); select.className='grade-select'+(savedGrade?' has-grade':'');
   select.appendChild(Object.assign(document.createElement('option'),{value:'',textContent:'—'}));
-  GRADES.filter(grade=>grade!=='SKIP').forEach(grade=>select.appendChild(Object.assign(document.createElement('option'),{value:grade,textContent:grade,selected:grade===savedGrade})));
+  getGradeCodesForDept().filter(grade=>grade!=='SKIP').forEach(grade=>select.appendChild(Object.assign(document.createElement('option'),{value:grade,textContent:grade,selected:grade===savedGrade})));
   select.onchange=()=>{select.classList.toggle('has-grade',!!select.value);row.classList.toggle('graded',!!select.value);persist(activeKey);recalculate();updateCumulative();};
   row.appendChild(select);
   const remove=document.createElement('button'); remove.className='delete-btn'; remove.textContent='×'; remove.title='Remove course';
@@ -601,7 +601,7 @@ function makeCourseRow(name,credits,savedGrade,isElective){
   } else {
     sel.className='grade-select'+(savedGrade?' has-grade':'');
     sel.appendChild(Object.assign(document.createElement('option'),{value:'',textContent:'—'}));
-    GRADES.filter(g=>g!=='SKIP').forEach(g=>{
+    getGradeCodesForDept().filter(g=>g!=='SKIP').forEach(g=>{
       const opt=document.createElement('option'); opt.value=g; opt.textContent=g;
       if(g===savedGrade) opt.selected=true;
       sel.appendChild(opt);
@@ -705,7 +705,7 @@ function confirmNewProfile(){
   if(!name) return;
   const profiles=getAllProfiles();
   const id='profile_'+Date.now();
-  profiles[id]={name,dept:_modalDept,semData:{},semHistory:{}};
+  profiles[id]={name,dept:_modalDept,semData:{},semHistory:{},examData:[]};
   saveAllProfiles(profiles);
   closeNewProfileModal();
   loadProfile(id);
@@ -729,11 +729,12 @@ function confirmDelete(){
   saveAllProfiles(profiles);
   if(activeProfileId===deleteTargetId){
     localStorage.removeItem('gpa_activeProfile');
-    activeProfileId=null; semData={}; semHistory={};
+    activeProfileId=null; semData={}; semHistory={}; examData=[];
     document.getElementById('activeProfileName').textContent='No Profile';
     document.getElementById('activeProfileBarName').textContent='None';
     updateDeptSelectState();
     loadCourses(); updateHistoryStrip(); updateCumulative();
+    if(document.getElementById('examsScreen')?.classList.contains('active')) renderExamsScreen();
   }
   closeDeleteModal(); renderProfileList();
   showToast(`"${name}" deleted`,5000,true);
