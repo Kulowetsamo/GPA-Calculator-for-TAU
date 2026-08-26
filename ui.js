@@ -10,6 +10,8 @@ function setProfileFilter(f){
 
 function renderProfileList() {
   _gpaEiEnsureSetup();
+  _gpaEiUpdateNudge();
+  _initStartYearControl();
   const profiles = getAllProfiles();
   const list = document.getElementById('profileList');
   list.innerHTML = '';
@@ -29,7 +31,7 @@ function renderProfileList() {
     const infoDiv = document.createElement('div');
     infoDiv.className = 'pc-info';
     infoDiv.innerHTML = `
-      <div class="pc-name">${p.name}<span class="dept-badge">${dept}</span></div>
+      <div class="pc-name">${_gpaEiEsc(p.name)}<span class="dept-badge">${dept}</span></div>
       <div class="pc-meta">${cnt} semester${cnt !== 1 ? 's' : ''} saved${cum ? ' · ' + cum.val + ' GPA' : ''}${cum?.honor ? ' · ' + cum.honor : ''}</div>
     `;
     card.appendChild(infoDiv);
@@ -68,7 +70,7 @@ function renderProfileList() {
   });
 }
 
-const GPA_EI_VERSION = 1;
+const GPA_EI_VERSION = 2;
 const VALID_DEPTS    = ['CNGB', 'IENG', 'FE'];
 let _gpaEiParsed = null;
 
@@ -142,6 +144,8 @@ function gpaEiExportAll() {
   if (!keys.length) { showToast('No profiles to export'); return; }
   const payload = _gpaEiBuildPayload(profiles);
   _gpaEiDownload('gpa_profiles_all.json', payload);
+  _gpaEiMarkExport();
+  _gpaEiUpdateNudge();
   showToast(`Exported ${keys.length} profile(s) ✓`);
 }
 
@@ -154,15 +158,44 @@ function gpaEiExportActive() {
   const payload = _gpaEiBuildPayload(subset);
   const safeName = (p.name || 'profile').replace(/[^a-z0-9_\-]/gi, '_').toLowerCase();
   _gpaEiDownload(`gpa_${safeName}.json`, payload);
+  _gpaEiMarkExport();
+  _gpaEiUpdateNudge();
   showToast(`Exported "${p.name}" ✓`);
+}
+
+const BACKUP_NUDGE_KEY='gpa_lastExport';
+const BACKUP_NUDGE_DAYS=14;
+function _gpaEiMarkExport(){ localStorage.setItem(BACKUP_NUDGE_KEY,new Date().toISOString()); }
+
+function _gpaEiUpdateNudge(){
+  const container=document.querySelector('#profileScreen .profile-screen');
+  if(!container) return;
+  let el=document.getElementById('gpaBackupNudge');
+  const hasData=Object.keys(getAllProfiles()).length>0;
+  const raw=localStorage.getItem(BACKUP_NUDGE_KEY);
+  const days=raw?Math.floor((Date.now()-new Date(raw))/86400000):null;
+  const stale=hasData&&(days===null||days>=BACKUP_NUDGE_DAYS);
+  if(!stale){ if(el) el.remove(); return; }
+  if(!el){
+    el=document.createElement('div');
+    el.id='gpaBackupNudge';
+    el.className='backup-nudge';
+    const row=document.getElementById('gpaEiRow');
+    container.insertBefore(el,row||container.firstChild);
+  }
+  el.innerHTML=`⚠️ <b>Backup reminder</b> — ${
+    days===null?'you have never exported your profiles.':`your last backup was ${days} day${days===1?'':'s'} ago.`
+  } Use ↓ Export All below to save a JSON copy outside this browser.`;
 }
 
 function _gpaEiBuildPayload(profiles) {
   const list = Object.values(profiles).map(p => ({
     name: p.name || 'Unnamed',
     dept: p.dept || 'CNGB',
+    startYear: p.startYear || null,
     semData: p.semData || {},
     semHistory: p.semHistory || {},
+    examData: Array.isArray(p.examData) ? p.examData : [],
   }));
   return {
     _type: 'gpa_profiles',
@@ -183,6 +216,7 @@ function gpaEiShareProfiles() {
   if (typeof Android !== 'undefined' && Android.shareText) {
     try {
       Android.shareText(jsonString, 'Share GPA Profiles');
+      _gpaEiMarkExport();
       showToast('Opening share sheet...');
       return;
     } catch (e) {
@@ -195,7 +229,7 @@ function gpaEiShareProfiles() {
 
   if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
     navigator.share({ title: 'Share GPA Profiles', files: [file] })
-      .then(() => showToast('Shared ✓'))
+      .then(() => { _gpaEiMarkExport(); showToast('Shared ✓'); })
       .catch((e) => {
         console.warn('File share failed:', e);
         shareText(jsonString, 'Share GPA Profiles').then(shared => {
@@ -218,7 +252,7 @@ function gpaEiShareProfiles() {
 function fallbackProfileShare(jsonString) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(jsonString)
-      .then(() => showToast('Copied to clipboard (share not available)'))
+      .then(() => { _gpaEiMarkExport(); showToast('Copied to clipboard (share not available)'); })
       .catch(() => showToast('Share failed'));
   } else {
     showToast('Share not supported');
@@ -335,6 +369,9 @@ function _gpaEiValidate(raw) {
     if (typeof p.semHistory !== 'object' || Array.isArray(p.semHistory)) {
       errors.push(`"${p.name}": semHistory is malformed`); return;
     }
+    if ('examData' in p && p.examData !== null && !Array.isArray(p.examData)) {
+      errors.push(`"${p.name}": examData is malformed`); return;
+    }
 
     const dupe = existingNames.includes(p.name.trim().toLowerCase());
     const semCount = Object.keys(p.semHistory || {}).length;
@@ -393,8 +430,10 @@ function gpaEiConfirmImport() {
     profiles[id] = {
       name: p.name.trim(),
       dept: p.dept,
+      startYear: p.startYear || null,
       semData: p.semData || {},
       semHistory: p.semHistory || {},
+      examData: Array.isArray(p.examData) ? p.examData : [],
     };
     count++;
   });
@@ -411,28 +450,130 @@ function _gpaEiEsc(s) {
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ── juice: count-up + confetti ─────────────────────────────────
+function animateNumber(el,target,duration=400){
+  if(!el) return;
+  if(el._animRaf) cancelAnimationFrame(el._animRaf);
+  const from=parseFloat(el.textContent);
+  if(isNaN(from)){ el.textContent=target.toFixed(2); return; }
+  const t0=performance.now();
+  const step=now=>{
+    const p=Math.min((now-t0)/duration,1);
+    const eased=1-Math.pow(1-p,3);
+    el.textContent=(from+(target-from)*eased).toFixed(2);
+    if(p<1) el._animRaf=requestAnimationFrame(step);
+    else el._animRaf=null;
+  };
+  el._animRaf=requestAnimationFrame(step);
+}
+
+function launchConfetti(tier){
+  if(document.getElementById('confettiLayer')) return;
+  const colors=tier==='gold'
+    ?['#f0d050','#c8a830','#fff0a0','#e21837','#ffffff']
+    :['#e21837','#f07830','#6060c0','#80e080','#f0d050'];
+  const layer=document.createElement('div');
+  layer.id='confettiLayer';
+  for(let i=0;i<70;i++){
+    const bit=document.createElement('span');
+    const size=5+Math.random()*7;
+    bit.style.cssText=`position:absolute;top:-20px;left:${Math.random()*100}%;width:${size}px;height:${size*(Math.random()>0.5?1:0.45)}px;background:${colors[i%colors.length]};opacity:${0.7+Math.random()*0.3};transform:rotate(${Math.random()*360}deg);border-radius:${Math.random()>0.6?'50%':'2px'};animation:confetti-fall ${1.6+Math.random()*1.4}s ${(Math.random()*0.4)}s cubic-bezier(.25,.46,.45,.94) forwards;`;
+    layer.appendChild(bit);
+  }
+  document.body.appendChild(layer);
+  setTimeout(()=>layer.remove(),3600);
+}
+
+// ── transcript stats card ─────────────────────────────────────
+function renderStatsCard(wrap){
+  const keys=SEM_ORDER.filter(([y,s])=>semHistory[y+'|'+s]);
+  if(!keys.length) return;
+  let best=null,bestGpa=-1,totalCr=0,sumGpa=0;
+  keys.forEach(([y,s])=>{
+    const k=y+'|'+s,h=semHistory[k];
+    totalCr+=h.credits; sumGpa+=h.gpa*h.credits;
+    if(h.gpa>bestGpa){bestGpa=h.gpa;best=k;}
+  });
+  const avg=sumGpa/totalCr;
+  const yIdx=k=>['Year 1','Year 2','Year 3','Year 4'].indexOf(k.split('|')[0])+1;
+
+  const card=document.createElement('div');
+  card.className='stats-card';
+
+  const tiles=document.createElement('div');
+  tiles.className='stats-tiles';
+  const tile=(label,val)=>`<div class="stat-tile"><div class="stat-val">${val}</div><div class="stat-label">${label}</div></div>`;
+  tiles.innerHTML=
+    tile('Best Sem',`${best? 'Y'+yIdx(best):'—'} · ${bestGpa>0?bestGpa.toFixed(2):'—'}`)+
+    tile('Weighted Avg',avg.toFixed(2))+
+    tile('Credits',totalCr);
+  card.appendChild(tiles);
+
+  // sparkline of semester GPAs in chronological order
+  const W=280,H=64,PAD=16;
+  const vals=keys.map(([y,s])=>semHistory[y+'|'+s].gpa);
+  const n=vals.length;
+  const x=i=>n===1?W/2:PAD+i*((W-2*PAD)/(n-1));
+  // map GPA 0..4 → bottom..top
+  const yv=v=>PAD+((4-v)/4)*(H-2*PAD);
+  let line='',area='';
+  vals.forEach((v,i)=>{
+    const px=x(i).toFixed(1),py=yv(v).toFixed(1);
+    line+=(i===0?'M':'L')+px+' '+py+' ';
+    area+=px+','+py+' ';
+  });
+  const dots=vals.map((v,i)=>{
+    const isBest=keys[i].join('|')===best;
+    return `<circle cx="${x(i).toFixed(1)}" cy="${yv(v).toFixed(1)}" r="${isBest?4:2.6}" fill="${isBest?'var(--accent2)':'var(--accent)'}"/>`;
+  }).join('');
+  const grid=[1,2,3,4].map(g=>`<line x1="${PAD-8}" y1="${yv(g).toFixed(1)}" x2="${W-PAD}" y2="${yv(g).toFixed(1)}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 4"/><text x="0" y="${(yv(g)+2.5).toFixed(1)}" font-size="7" fill="var(--muted)" font-family="DM Mono">${g}</text>`).join('');
+  card.insertAdjacentHTML('beforeend',`
+    <div class="stats-chart-title">GPA TREND</div>
+    <svg class="sparkline" viewBox="0 0 ${W} ${H}">
+      ${grid}
+      <polygon points="${PAD},${H-PAD} ${area}${W-PAD},${H-PAD}" fill="url(#sparkFill)"/>
+      <defs><linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      ${dots}
+    </svg>`);
+  wrap.appendChild(card);
+}
+
+// ── grade edit undo ───────────────────────────────────────────
+let lastGradeEdit=null;
+function _gradeLabel(v){ return v===''?'—':v==='S'?'S (Passed)':v==='U'?'U':v==='SKIP'?"Didn't Take":v; }
+function recordGradeUndo(sel){
+  const prev=sel.dataset.prev||'';
+  lastGradeEdit={sel,prev};
+  showToast(`${_gradeLabel(prev)} → ${_gradeLabel(sel.value)}`,4000,true);
+}
+function commitGradeSel(sel){ sel.dataset.prev=sel.value; }
+function undoAction(){
+  if(deletedProfile){ undoDelete(); return; }
+  if(lastGradeEdit){ undoGradeEdit(); return; }
+}
+function undoGradeEdit(){
+  const {sel,prev}=lastGradeEdit;
+  lastGradeEdit=null;
+  if(!sel||!sel.isConnected){ showToast('Nothing to restore'); return; }
+  const row=sel.closest('.course-row');
+  sel.value=prev;
+  if(row&&row.classList.contains('zero-cr')){
+    sel.className='grade-select'+(prev==='S'?' zero-pass':prev==='U'?' zero-fail has-grade':prev?' has-grade':'');
+  } else {
+    sel.classList.toggle('has-grade',prev!==''&&prev!=='SKIP');
+  }
+  commitGradeSel(sel);
+  if(row) row.classList.toggle('graded',prev!==''&&prev!=='SKIP');
+  persist(activeKey); recalculate(); updateCumulative();
+  showToast('Grade restored ✓');
+}
+
 // ── semester UI ───────────────────────────────────────────────
 function persist(key){
-  // In what-if mode the DOM contains hypothetical grades — use the real snapshot
-  // to avoid corrupting semData with what-if values
-  if(whatIfMode){
-    const snap=realSnapshotBySem[key];
-    if(snap){
-      const rows=document.querySelectorAll('.course-row');
-      const saved=[];
-      rows.forEach((row,i)=>{
-        const credEl=row.querySelector('.spin-val');
-        const isElect=row.classList.contains('elective');
-        const existingGrade=(semData[activeDept+'|'+key]||[])[i]?.grade??'';
-        const realGrade=snap[i]!==undefined?snap[i]:existingGrade;
-        saved.push({grade:realGrade,credits:isElect?parseInt(credEl.textContent):parseInt(row.dataset.credits),elective:isElect});
-      });
-      semData[activeDept+'|'+key]=saved;
-      persistToProfile();
-    }
-    // No snapshot = haven't visited this sem in what-if mode, semData already clean
-    return;
-  }
   const rows=document.querySelectorAll('.course-row');
   const snap=[];
   rows.forEach(row=>{
@@ -477,14 +618,11 @@ function loadCourses(){
     list.appendChild(empty);
   }
   recalculate(); updateHistoryStrip(); updateCumulative();
-  if(whatIfMode) _onWhatIfSemSwitch();
-  else { document.querySelector('#calcScreen .banner:not(.cum)')?.classList.remove('whatif-active'); }
 }
 
 
 // ── Add Course / Retake ────────────────────────────────────────
 function openAddCourseModal(){
-  if(whatIfMode){ showToast('Exit What-If mode before adding a course'); return; }
   let modal=document.getElementById('addCourseModal');
   if(!modal){
     modal=document.createElement('div');
@@ -510,9 +648,11 @@ function openAddCourseModal(){
     </div>`;
   const list=modal.querySelector('#addCourseList');
   const count=modal.querySelector('#addCourseCount');
+  const searchInput=modal.querySelector('#addCourseSearch');
+  const closeModal=()=>{searchInput.blur();modal.classList.remove('open');};
   const addCourse=course=>{
     document.getElementById('courseList').appendChild(makeRetakeRow(course.name,course.credits,''));
-    modal.classList.remove('open'); persist(activeKey); recalculate(); updateCumulative();
+    closeModal(); persist(activeKey); recalculate(); updateCumulative();
     showToast('Course added as retake');
   };
   const render=query=>{
@@ -529,12 +669,12 @@ function openAddCourseModal(){
     });
   };
   modal.querySelector('#addCourseSearch').oninput=e=>render(e.target.value);
-  modal.querySelector('.course-picker-close').onclick=()=>modal.classList.remove('open');
-  modal.querySelector('#cancelAddCourse').onclick=()=>modal.classList.remove('open');
-  modal.onclick=e=>{if(e.target===modal)modal.classList.remove('open');};
+  modal.querySelector('.course-picker-close').onclick=closeModal;
+  modal.querySelector('#cancelAddCourse').onclick=closeModal;
+  modal.onclick=e=>{if(e.target===modal)closeModal();};
   render('');
   modal.classList.add('open');
-  modal.querySelector('#addCourseSearch').focus();
+  searchInput.focus();
 }
 
 function makeRetakeRow(name,credits,savedGrade){
@@ -550,9 +690,10 @@ function makeRetakeRow(name,credits,savedGrade){
   const adjust=delta=>{const next=parseInt(value.textContent)+delta;if(next>=1&&next<=9){value.textContent=next;row.dataset.credits=next;persist(activeKey);recalculate();}};
   minus.onclick=()=>adjust(-1); plus.onclick=()=>adjust(1); spin.append(minus,value,plus); row.appendChild(spin);
   const select=document.createElement('select'); select.className='grade-select'+(savedGrade?' has-grade':'');
+  select.dataset.prev=savedGrade||'';
   select.appendChild(Object.assign(document.createElement('option'),{value:'',textContent:'—'}));
-  GRADES.filter(grade=>grade!=='SKIP').forEach(grade=>select.appendChild(Object.assign(document.createElement('option'),{value:grade,textContent:grade,selected:grade===savedGrade})));
-  select.onchange=()=>{select.classList.toggle('has-grade',!!select.value);row.classList.toggle('graded',!!select.value);persist(activeKey);recalculate();updateCumulative();};
+  getGradeCodesForDept().filter(grade=>grade!=='SKIP').forEach(grade=>select.appendChild(Object.assign(document.createElement('option'),{value:grade,textContent:grade,selected:grade===savedGrade})));
+  select.onchange=()=>{recordGradeUndo(select);select.classList.toggle('has-grade',!!select.value);row.classList.toggle('graded',!!select.value);persist(activeKey);recalculate();updateCumulative();commitGradeSel(select);};
   row.appendChild(select);
   const remove=document.createElement('button'); remove.className='delete-btn'; remove.textContent='×'; remove.title='Remove course';
   remove.onclick=()=>{row.remove();persist(activeKey);recalculate();updateCumulative();}; row.appendChild(remove);
@@ -576,8 +717,8 @@ function makeCourseRow(name,credits,savedGrade,isElective){
     const minus=document.createElement('button'); minus.className='spin-btn'; minus.textContent='−';
     const val  =document.createElement('span');  val.className='spin-val';   val.textContent=credits;
     const plus =document.createElement('button'); plus.className='spin-btn';  plus.textContent='+';
-    minus.onclick=()=>{let v=parseInt(val.textContent);if(v>1){val.textContent=v-1;row.dataset.credits=v-1;recalculate();}};
-    plus.onclick =()=>{let v=parseInt(val.textContent);if(v<9){val.textContent=v+1;row.dataset.credits=v+1;recalculate();}};
+    minus.onclick=()=>{let v=parseInt(val.textContent);if(v>1){val.textContent=v-1;row.dataset.credits=v-1;persist(activeKey);recalculate();}};
+    plus.onclick =()=>{let v=parseInt(val.textContent);if(v<9){val.textContent=v+1;row.dataset.credits=v+1;persist(activeKey);recalculate();}};
     spin.appendChild(minus); spin.appendChild(val); spin.appendChild(plus);
     row.appendChild(spin);
   } else {
@@ -593,15 +734,19 @@ function makeCourseRow(name,credits,savedGrade,isElective){
       sel.appendChild(opt);
     });
     sel.className='grade-select'+(savedGrade==='S'?' zero-pass':savedGrade==='U'?' zero-fail has-grade':savedGrade?'  has-grade':'');
+    sel.dataset.prev=savedGrade||'';
     sel.onchange=()=>{
+      recordGradeUndo(sel);
       sel.className='grade-select'+(sel.value==='S'?' zero-pass':sel.value==='U'?' zero-fail has-grade':sel.value?' has-grade':'');
       row.classList.toggle('graded',sel.value!==''&&sel.value!=='SKIP');
       persist(activeKey);
+      commitGradeSel(sel);
     };
   } else {
     sel.className='grade-select'+(savedGrade?' has-grade':'');
+    sel.dataset.prev=savedGrade||'';
     sel.appendChild(Object.assign(document.createElement('option'),{value:'',textContent:'—'}));
-    GRADES.filter(g=>g!=='SKIP').forEach(g=>{
+    getGradeCodesForDept().filter(g=>g!=='SKIP').forEach(g=>{
       const opt=document.createElement('option'); opt.value=g; opt.textContent=g;
       if(g===savedGrade) opt.selected=true;
       sel.appendChild(opt);
@@ -610,9 +755,11 @@ function makeCourseRow(name,credits,savedGrade,isElective){
     if(savedGrade==='SKIP') skipOpt.selected=true;
     sel.appendChild(skipOpt);
     sel.onchange=()=>{
+      recordGradeUndo(sel);
       sel.classList.toggle('has-grade',sel.value!=='');
       row.classList.toggle('graded',sel.value!==''&&sel.value!=='SKIP');
       recalculate(); persist(activeKey);
+      commitGradeSel(sel);
     };
   }
   if(savedGrade&&savedGrade!=='SKIP') row.classList.add('graded');
@@ -626,11 +773,10 @@ function updateHistoryStrip(){
   SEM_ORDER.forEach(([year,sem])=>{
     const key=year+'|'+sem;
     if(!semHistory[key]) return;
-    const yIdx=['Year 1','Year 2','Year 3','Year 4'].indexOf(year)+1;
-    const semNum=semNumber(sem);
     const chip=document.createElement('div');
     chip.className='chip'+(key===activeKey?' active-chip':'');
-    chip.innerHTML=`<div class="chip-label">${sem==='Summer'?'Y'+yIdx+' Summer':'Y'+yIdx+'S'+semNum}</div><div class="chip-gpa">${semHistory[key].gpa.toFixed(2)}</div>`;
+    chip.title=semLabel(key);
+    chip.innerHTML=`<div class="chip-label">${semLabel(key,{short:true})}</div><div class="chip-gpa">${semHistory[key].gpa.toFixed(2)}</div>`;
     chip.onclick=()=>{
       const[y,s]=key.split('|');
       document.getElementById('yearSel').value=y;
@@ -641,18 +787,19 @@ function updateHistoryStrip(){
   });
 }
 
-function updateCumulative(wiGpa){
+function updateCumulative(){
   const keys=Object.keys(semHistory);
   const banner=document.getElementById('cumBanner');
   const badge=document.getElementById('honorBadge');
   const cumLabel=document.getElementById('cumLabel');
   const cumGpaEl=document.getElementById('cumGpa');
   const cumSubsEl=document.getElementById('cumSubs');
+  const progEl=document.getElementById('cumProgress');
   if(!keys.length){
     cumGpaEl.textContent='—';
     cumSubsEl.textContent='';
+    if(progEl) progEl.style.width='0%';
     badge.style.display='none'; banner.className='banner cum'; cumLabel.textContent='Cumulative';
-    banner.classList.remove('whatif-active');
     return;
   }
   const profiles=getAllProfiles();
@@ -660,28 +807,50 @@ function updateCumulative(wiGpa){
   const cumulative=computeCumulative(profile);
   const realGpa=cumulative?parseFloat(cumulative.val):0;
 
-  // If a what-if cumulative GPA is provided, show it in purple instead
-  const displayGpa = (wiGpa!=null) ? wiGpa : realGpa;
-  cumGpaEl.textContent=displayGpa.toFixed(2);
+  animateNumber(cumGpaEl,realGpa);
   cumSubsEl.textContent=keys.length+' semester'+(keys.length>1?'s':'');
 
-  banner.className='banner cum'; badge.style.display='none'; cumLabel.textContent='Cumulative';
-  banner.classList.remove('whatif-active');
-
-  if(wiGpa!=null){
-    // What-if mode: show purple, add what-if label
-    banner.classList.add('whatif-active');
-    cumLabel.textContent='Cumulative (What-If)';
-    // Delta hint
-    const diff=wiGpa-realGpa;
-    if(Math.abs(diff)>=0.005){
-      cumSubsEl.textContent=(diff>0?'▲ +':'▼ ')+diff.toFixed(2)+' vs real · '+keys.length+' sem'+(keys.length>1?'s':'');
-    }
-  } else {
-    if(realGpa<2.0){banner.classList.add('danger');cumLabel.textContent='Cumulative ⚠';}
-    else if(realGpa>=3.5){banner.classList.add('high-honor');badge.style.display='inline-block';badge.className='honor-badge high';badge.textContent='★ High Honor';}
-    else if(realGpa>=3.0){badge.style.display='inline-block';badge.className='honor-badge';badge.textContent='✦ Honor Student';}
+  if(progEl){
+    progEl.style.width=(Math.max(0,Math.min(realGpa,4))/4*100)+'%';
+    progEl.className='cum-progress-bar'+(realGpa<2?' low':realGpa>=3.5?' high':'');
   }
+
+  banner.className='banner cum'; badge.style.display='none'; cumLabel.textContent='Cumulative';
+
+  if(realGpa<2.0){banner.classList.add('danger');cumLabel.textContent='Cumulative ⚠';}
+  else if(realGpa>=3.5){banner.classList.add('high-honor');badge.style.display='inline-block';badge.className='honor-badge high';badge.textContent='★ High Honor';}
+  else if(realGpa>=3.0){badge.style.display='inline-block';badge.className='honor-badge';badge.textContent='✦ Honor Student';}
+}
+
+// ── start year (academic labels) ─────────────────────────────
+function _initStartYearControl(){
+  const row=document.getElementById('startYearRow');
+  const input=document.getElementById('startYearInput');
+  if(!row||!input) return;
+  const profiles=getAllProfiles();
+  const p=activeProfileId&&profiles[activeProfileId]?profiles[activeProfileId]:null;
+  row.classList.toggle('visible',!!p);
+  input.value=(p&&p.startYear)?p.startYear:'';
+}
+function onStartYearChange(v){
+  if(!activeProfileId){ showToast('Load a profile first'); return; }
+  const profiles=getAllProfiles();
+  const p=profiles[activeProfileId];
+  if(!p) return;
+  const n=parseInt(v,10);
+  if(isNaN(n)||n<2000||n>2100){
+    p.startYear=null;
+    saveAllProfiles(profiles);
+    document.getElementById('startYearInput').value='';
+    showToast('Academic-year labels off');
+  } else {
+    p.startYear=n;
+    saveAllProfiles(profiles);
+    showToast('Labels use '+n+'\u2013'+String(n+1).slice(-2)+' onwards');
+  }
+  updateHistoryStrip();
+  if(document.getElementById('transcriptScreen')?.classList.contains('active')) renderTranscript();
+  if(document.getElementById('examsScreen')?.classList.contains('active')) renderExamsScreen();
 }
 
 // ── modals ────────────────────────────────────────────────────
@@ -705,7 +874,7 @@ function confirmNewProfile(){
   if(!name) return;
   const profiles=getAllProfiles();
   const id='profile_'+Date.now();
-  profiles[id]={name,dept:_modalDept,semData:{},semHistory:{}};
+  profiles[id]={name,dept:_modalDept,semData:{},semHistory:{},examData:[]};
   saveAllProfiles(profiles);
   closeNewProfileModal();
   loadProfile(id);
@@ -729,11 +898,12 @@ function confirmDelete(){
   saveAllProfiles(profiles);
   if(activeProfileId===deleteTargetId){
     localStorage.removeItem('gpa_activeProfile');
-    activeProfileId=null; semData={}; semHistory={};
+    activeProfileId=null; semData={}; semHistory={}; examData=[];
     document.getElementById('activeProfileName').textContent='No Profile';
     document.getElementById('activeProfileBarName').textContent='None';
     updateDeptSelectState();
     loadCourses(); updateHistoryStrip(); updateCumulative();
+    if(document.getElementById('examsScreen')?.classList.contains('active')) renderExamsScreen();
   }
   closeDeleteModal(); renderProfileList();
   showToast(`"${name}" deleted`,5000,true);
@@ -757,7 +927,21 @@ function undoDelete(){
 
 function confirmReset(){document.getElementById('resetModal').classList.add('open');}
 function closeResetModal(){document.getElementById('resetModal').classList.remove('open');}
-function doReset(){semData={};semHistory={};if(activeProfileId)persistToProfile();loadCourses();closeResetModal();}
+function doReset(scope){
+  closeResetModal();
+  if(scope==='sem'){
+    delete semData[activeDept+'|'+activeKey];
+    delete semHistory[activeKey];
+    // Drop exam logs tied to that semester so the Exams tab stays consistent
+    examData=(examData||[]).filter(e=>!(e.dept===activeDept&&e.semKey===activeKey));
+  } else {
+    semData={}; semHistory={}; examData=[];
+  }
+  if(activeProfileId)persistToProfile();
+  loadCourses(); updateHistoryStrip(); updateCumulative();
+  if(document.getElementById('examsScreen')?.classList.contains('active')) renderExamsScreen();
+  showToast(scope==='sem'?'Semester cleared ✓':'All semesters cleared ✓');
+}
 
 let toastTimer=null;
 function showToast(msg,duration=2000,showUndo=false){
@@ -773,7 +957,7 @@ function showToast(msg,duration=2000,showUndo=false){
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     bar.style.transition=`width ${duration}ms linear`; bar.style.width='0%';
   }));
-  toastTimer=setTimeout(()=>{t.classList.remove('show');deletedProfile=null;toastTimer=null;},duration);
+  toastTimer=setTimeout(()=>{t.classList.remove('show');deletedProfile=null;lastGradeEdit=null;toastTimer=null;},duration);
 }
 
 let renameTargetId=null;
@@ -799,25 +983,29 @@ function confirmRename(){
 }
 
 // ── theme ─────────────────────────────────────────────────────
-function toggleTheme(){
-  const isLight=document.body.classList.toggle('light');
-  localStorage.setItem('gpa_theme',isLight?'light':'dark');
+function applyTheme(isLight){
+  document.body.classList.toggle('light',isLight);
+  const meta=document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.content=isLight?'#f5f5f0':'#0d0d0d';
   document.getElementById('themeIcon').innerHTML=isLight
     ?'<path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/>'
     :'<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
 }
 function loadTheme(){
-  const savedTheme = localStorage.getItem('gpa_theme');
-  if (savedTheme === 'dark') {
-    // explicitly dark
-    document.body.classList.remove('light');
-    document.getElementById('themeIcon').innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
-  } else {
-    // default to light (no saved preference or saved as 'light')
-    document.body.classList.add('light');
-    document.getElementById('themeIcon').innerHTML = '<path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/>';
-    if (!savedTheme) localStorage.setItem('gpa_theme', 'light');
+  const saved=localStorage.getItem('gpa_theme');
+  const sysDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
+  // No explicit choice yet → follow the OS preference
+  applyTheme(saved?saved==='light':!sysDark);
+  if(window.matchMedia&&!saved){
+    const mq=window.matchMedia('(prefers-color-scheme: dark)');
+    const onSys=e=>{ if(localStorage.getItem('gpa_theme')) return; applyTheme(!e.matches); };
+    mq.addEventListener?mq.addEventListener('change',onSys):mq.addListener&&mq.addListener(onSys);
   }
+}
+function toggleTheme(){
+  const isLight=document.body.classList.toggle('light');
+  localStorage.setItem('gpa_theme',isLight?'light':'dark');
+  applyTheme(isLight);
 }
 
 // ── transcript ────────────────────────────────────────────────
@@ -837,6 +1025,8 @@ function renderTranscript(){
   pName.textContent=profileName||'No Profile';
   wrap.appendChild(pName);
 
+  renderStatsCard(wrap);
+
   const savedSems=SEM_ORDER.filter(([y,s])=>semHistory[y+'|'+s]);
   if(!savedSems.length){
     const msg=document.createElement('div');
@@ -852,8 +1042,6 @@ function renderTranscript(){
   savedSems.forEach(([year,sem])=>{
     const key=year+'|'+sem;
     const dataKey=activeDept+'|'+key;
-    const yIdx=['Year 1','Year 2','Year 3','Year 4'].indexOf(year)+1;
-    const semN=semNumber(sem);
     const saved=semData[dataKey]||[];
     const preset=[...(presets[key]||[])].sort((a,b)=>b[1]-a[1]);
     const elects=electives[key]||[];
@@ -862,7 +1050,7 @@ function renderTranscript(){
     semDiv.className='transcript-sem';
     const semH=document.createElement('div');
     semH.className='transcript-sem-header';
-    semH.innerHTML=`<span class="transcript-sem-title">${sem==='Summer'?'Year '+yIdx+' · Summer School':'Year '+yIdx+' · Semester '+semN}</span><span class="transcript-sem-gpa">${semHistory[key].gpa.toFixed(2)} GPA</span>`;
+    semH.innerHTML=`<span class="transcript-sem-title">${semLabel(key)}</span><span class="transcript-sem-gpa">${semHistory[key].gpa.toFixed(2)} GPA</span>`;
     semDiv.appendChild(semH);
 
     const allCourses=[
@@ -886,7 +1074,7 @@ function renderTranscript(){
         gradeClass=grade===''?'empty':'';
       }
       row.innerHTML=`
-        <span class="transcript-course-name">${name}</span>
+        <span class="transcript-course-name">${_gpaEiEsc(name)}</span>
         <span class="transcript-course-cr">${isZero?'—':cr+'cr'}</span>
         <span class="transcript-course-grade ${gradeClass}">${gradeText}</span>`;
       semDiv.appendChild(row);
@@ -896,8 +1084,10 @@ function renderTranscript(){
 
   const cum=activeProfileId&&profiles[activeProfileId]?computeCumulative(profiles[activeProfileId]):null;
   if(cum){
+    const gpaVal=parseFloat(cum.val);
     const cumDiv=document.createElement('div');
-    cumDiv.className='transcript-cum'+(parseFloat(cum.val)<2?' danger':'');
+    cumDiv.className='transcript-cum'
+      +(gpaVal<2?' danger':gpaVal>=3.5?' high-honor':gpaVal>=3?' honor':'');
     cumDiv.innerHTML=`
       <div class="transcript-cum-left">
         <div class="label">Cumulative GPA</div>
@@ -922,15 +1112,25 @@ function renderTranscriptActions(wrap){
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
       Copy
     </button>
-    <button class="transcript-btn" id="exportImgBtn" onclick="exportAsImage()" style="grid-column:1/-1;border-color:#2a3a4a;color:var(--accent2);">
+    <button class="transcript-btn" onclick="exportCsv()" style="border-color:#2a3a4a;color:var(--accent2);">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      CSV
+    </button>
+    <button class="transcript-btn" id="exportImgBtn" onclick="exportAsImage()" style="border-color:#2a3a4a;color:var(--accent2);">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-      Export as Image
+      Image
+    </button>
+    <button class="transcript-btn" onclick="printTranscript()" style="border-color:#2a3a4a;color:var(--accent2);">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Print / PDF
     </button>`;
   wrap.appendChild(actions);
 }
 
 // buildShareText(), shareTranscript(), copyTranscript(), and the
 // image export/share/save logic now live in export.js.
+
+function printTranscript(){ window.print(); }
 
 // ── swipe ─────────────────────────────────────────────────────
 (function(){
@@ -967,4 +1167,6 @@ function renderTranscriptActions(wrap){
     const dy=e.changedTouches[0].clientY-ty0;
     if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.5) goToFlat(dx<0?currentFlatIdx()+1:currentFlatIdx()-1);
   },{passive:true});
+  // exposed for the central keyboard handler in app.js
+  window.calcSemNav=function(dir){ goToFlat(currentFlatIdx()+dir); };
 })();

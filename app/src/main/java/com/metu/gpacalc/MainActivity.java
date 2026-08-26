@@ -139,19 +139,22 @@ public class MainActivity extends Activity {
 
     private class AndroidBridge {
 
-        // ─── JSON EXPORT ─────────────────────────────────────────────
+        // ─── FILE EXPORT (JSON / CSV / …) ────────────────────────────
         @JavascriptInterface
-        public void exportFile(String json, String suggestedFileName) {
+        public void exportFile(String contents, String suggestedFileName) {
             runOnUiThread(() -> {
                 try {
                     File tempFile = new File(getCacheDir(), suggestedFileName);
                     try (FileOutputStream fos = new FileOutputStream(tempFile)) {
-                        fos.write(json.getBytes());
+                        fos.write(contents.getBytes());
                     }
                     pendingExportFile = tempFile;
+                    String mime = suggestedFileName != null && suggestedFileName.toLowerCase().endsWith(".csv")
+                            ? "text/csv"
+                            : "application/json";
                     Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
                     intent.addCategory(Intent.CATEGORY_OPENABLE);
-                    intent.setType("application/json");
+                    intent.setType(mime);
                     intent.putExtra(Intent.EXTRA_TITLE, suggestedFileName);
                     startActivityForResult(intent, EXPORT_FILE_REQUEST_CODE);
                     Toast.makeText(MainActivity.this, "Choose where to save", Toast.LENGTH_SHORT).show();

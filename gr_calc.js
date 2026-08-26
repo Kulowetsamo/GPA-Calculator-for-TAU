@@ -1,36 +1,93 @@
 // ── gr_calc.js ────────────────────────────────────────────────
 
-const DEFAULT_LETTER_SCALE = [
-  [90, 'AA', 'Excellent'],
-  [85, 'BA', 'Very Good+'],
-  [80, 'BB', 'Very Good'],
-  [75, 'CB', 'Good+'],
-  [70, 'CC', 'Good'],
-  [65, 'DC', 'Satisfactory+'],
-  [60, 'DD', 'Satisfactory'],
-  [50, 'FD', 'Conditional Fail'],
-  [0,  'FF', 'Fail'],
-];
+// One default grading scale per department — mirrors the letter-grade
+// system used on the Calc tab for that department (CNGB/IENG/FE).
+const DEFAULT_SCALES = {
+  CNGB: [
+    [90, 'AA', 'Excellent'],
+    [85, 'BA', 'Very Good+'],
+    [80, 'BB', 'Very Good'],
+    [75, 'CB', 'Good+'],
+    [70, 'CC', 'Good'],
+    [65, 'DC', 'Satisfactory+'],
+    [60, 'DD', 'Satisfactory'],
+    [50, 'FD', 'Conditional Fail'],
+    [0,  'FF', 'Fail'],
+  ],
+  IENG: [
+    [90, 'AA',  'Excellent'],
+    [85, 'BA+', 'Very Good++'],
+    [80, 'BA',  'Very Good+'],
+    [75, 'BB+', 'Very Good'],
+    [70, 'BB',  'Good++'],
+    [65, 'CB+', 'Good+'],
+    [60, 'CB',  'Good'],
+    [55, 'CC+', 'Satisfactory++'],
+    [50, 'CC',  'Satisfactory+'],
+    [45, 'DC+', 'Satisfactory'],
+    [40, 'DC',  'Conditional Pass+'],
+    [35, 'DD+', 'Conditional Pass'],
+    [30, 'DD',  'Conditional Pass−'],
+    [0,  'FF',  'Fail'],
+  ],
+  FE: [
+    [90, 'A1',  'Excellent'],
+    [85, 'A2',  'Very Good+'],
+    [80, 'B1',  'Very Good'],
+    [75, 'B2',  'Good+'],
+    [70, 'C1',  'Good'],
+    [65, 'C2*', 'Satisfactory+'],
+    [60, 'D1*', 'Satisfactory'],
+    [50, 'D2*', 'Conditional Pass'],
+    [0,  'F1',  'Fail'],
+  ],
+};
+// Back-compat alias — some older code paths may still reference this.
+const DEFAULT_LETTER_SCALE = DEFAULT_SCALES.CNGB;
 
-const SCALE_STORAGE_KEY = 'gradecalc_scale';
+function grDeptForScale() {
+  return (typeof activeDept !== 'undefined' && DEFAULT_SCALES[activeDept]) ? activeDept : 'CNGB';
+}
 
-function grLoadScale() {
+function grScaleStorageKey(dept) {
+  return 'gradecalc_scale_' + (dept || grDeptForScale());
+}
+
+function grLoadScale(dept) {
+  const d = dept || grDeptForScale();
   try {
-    const raw = localStorage.getItem(SCALE_STORAGE_KEY);
-    if (!raw) return DEFAULT_LETTER_SCALE.map(r => [...r]);
+    const raw = localStorage.getItem(grScaleStorageKey(d));
+    if (!raw) return DEFAULT_SCALES[d].map(r => [...r]);
     const parsed = JSON.parse(raw);
-    if (parsed.length === 9) return parsed;
+    if (Array.isArray(parsed) && parsed.length >= 2) return parsed;
   } catch(e) {}
-  return DEFAULT_LETTER_SCALE.map(r => [...r]);
+  return DEFAULT_SCALES[d].map(r => [...r]);
 }
 
 function grSaveScale(scale) {
-  localStorage.setItem(SCALE_STORAGE_KEY, JSON.stringify(scale));
+  localStorage.setItem(grScaleStorageKey(), JSON.stringify(scale));
 }
 
 function grResetScale() {
-  localStorage.removeItem(SCALE_STORAGE_KEY);
-  return DEFAULT_LETTER_SCALE.map(r => [...r]);
+  localStorage.removeItem(grScaleStorageKey());
+  return DEFAULT_SCALES[grDeptForScale()].map(r => [...r]);
+}
+
+// Reload LETTER_SCALE to match the currently active department (called
+// whenever the department changes on the Calc tab) and refresh any
+// visible grade-tab UI that depends on it.
+function grSyncScaleToDept() {
+  LETTER_SCALE.length = 0;
+  grLoadScale().forEach(row => LETTER_SCALE.push([...row]));
+
+  const badge = document.getElementById('grScaleDeptBadge');
+  if (badge) badge.textContent = '· ' + grDeptForScale();
+
+  if (typeof grRenderScaleScreen === 'function') grRenderScaleScreen();
+  if (typeof grCalc             === 'function') grCalc();
+  if (typeof grNeededBuildPills === 'function') { grNeededBuildPills(); if (typeof grNeededCalc === 'function') grNeededCalc(); }
+  if (typeof _stRenderActiveBar     === 'function') _stRenderActiveBar();
+  if (typeof _stRenderTemplateList  === 'function') _stRenderTemplateList();
 }
 
 let LETTER_SCALE = grLoadScale();
@@ -258,12 +315,12 @@ function initGradeScreen() {
       <div class="gr-main">
         <div class="gr-card">
           <div class="gr-card-label-row">
-            <div class="gr-card-label">Grade Scale Thresholds</div>
+            <div class="gr-card-label">Grade Scale Thresholds <span id="grScaleDeptBadge" style="color:var(--accent);font-weight:500;"></span></div>
             <button class="gr-btn-ghost" style="font-size:10px;" onclick="grResetScaleUI()">Reset defaults</button>
           </div>
           <p style="font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.7;">
             Set the minimum score required for each letter grade.<br>
-            FF has a fixed threshold of 0 and cannot be changed.
+            This scale follows the department selected on the Calc tab.
           </p>
           <div id="grScaleRows"></div>
         </div>
@@ -947,13 +1004,14 @@ function grRenderScaleScreen() {
     container.appendChild(row);
   });
 
-  // FF row — locked at 0
+  // Fail row (last entry) — locked at 0
+  const [, failCode, failDesc] = LETTER_SCALE[LETTER_SCALE.length - 1];
   const ffRow = document.createElement('div');
   ffRow.className = 'gr-field-row';
   ffRow.innerHTML =
     `<span class="gr-field-label" style="display:flex;align-items:center;gap:8px;">
-       <span style="color:var(--danger);font-weight:500;width:24px;">FF</span>
-       <span style="color:var(--muted);font-size:11px;">Fail</span>
+       <span style="color:var(--danger);font-weight:500;width:24px;">${failCode}</span>
+       <span style="color:var(--muted);font-size:11px;">${failDesc}</span>
      </span>
      <input class="gr-field-input" type="number" value="0" disabled
        style="opacity:0.35;cursor:not-allowed;">
@@ -1232,10 +1290,11 @@ function grNeededBuildPills() {
     container.appendChild(btn);
   });
 
-  // Select DD (≥60) by default — the minimum passing grade
-  const ddBtn = [...container.querySelectorAll('.gr-needed-pill')]
-    .find(b => b.dataset.code === 'DD');
-  if (ddBtn) ddBtn.classList.add('gr-needed-pill-active');
+  // Select the lowest passing grade by default (DD on the standard
+  // scale; falls back to the last non-fail tier on other scales)
+  const pills = [...container.querySelectorAll('.gr-needed-pill')];
+  const defaultBtn = pills.find(b => b.dataset.code === 'DD') || pills[pills.length - 1];
+  if (defaultBtn) defaultBtn.classList.add('gr-needed-pill-active');
 }
 
 // ── 4. Main calculation ───────────────────────────────────────
@@ -1437,9 +1496,12 @@ function grNeededToggle() {
   if (btn)    btn.textContent       = _grNeededCollapsed ? 'Show' : 'Hide';
 }
 
+// Each built-in preset is hard-bounded to one department — presets never
+// mix across CNGB/IENG/FE, since their letter codes aren't compatible.
 const _RAW_SCALE_BUILTINS = [
   {
     name: 'TAU Standard',
+    dept: 'CNGB',
     scale: [
       [90, 'AA', 'Excellent'],
       [85, 'BA', 'Very Good+'],
@@ -1454,6 +1516,7 @@ const _RAW_SCALE_BUILTINS = [
   },
   {
     name: 'Lenient (AA from 85)',
+    dept: 'CNGB',
     scale: [
       [85, 'AA', 'Excellent'],
       [80, 'BA', 'Very Good+'],
@@ -1466,6 +1529,41 @@ const _RAW_SCALE_BUILTINS = [
       [0,  'FF', 'Fail'],
     ],
   },
+  {
+    name: 'IENG Scale',
+    dept: 'IENG',
+    scale: [
+      [90, 'AA',  'Excellent'],
+      [85, 'BA+', 'Very Good++'],
+      [80, 'BA',  'Very Good+'],
+      [75, 'BB+', 'Very Good'],
+      [70, 'BB',  'Good++'],
+      [65, 'CB+', 'Good+'],
+      [60, 'CB',  'Good'],
+      [55, 'CC+', 'Satisfactory++'],
+      [50, 'CC',  'Satisfactory+'],
+      [45, 'DC+', 'Satisfactory'],
+      [40, 'DC',  'Conditional Pass+'],
+      [35, 'DD+', 'Conditional Pass'],
+      [30, 'DD',  'Conditional Pass−'],
+      [0,  'FF',  'Fail'],
+    ],
+  },
+  {
+    name: 'FE Scale',
+    dept: 'FE',
+    scale: [
+      [90, 'A1',  'Excellent'],
+      [85, 'A2',  'Very Good+'],
+      [80, 'B1',  'Very Good'],
+      [75, 'B2',  'Good+'],
+      [70, 'C1',  'Good'],
+      [65, 'C2*', 'Satisfactory+'],
+      [60, 'D1*', 'Satisfactory'],
+      [50, 'D2*', 'Conditional Pass'],
+      [0,  'F1',  'Fail'],
+    ],
+  },
 ];
 
 const BUILTIN_SCALE_TEMPLATES = _RAW_SCALE_BUILTINS.map((t, i) => ({
@@ -1474,13 +1572,20 @@ const BUILTIN_SCALE_TEMPLATES = _RAW_SCALE_BUILTINS.map((t, i) => ({
   builtin: true,
 }));
 
-const SCALE_TPL_KEY        = 'gradecalc_scale_templates';
-const SCALE_TPL_ACTIVE_KEY = 'gradecalc_scale_active_tpl';
+const SCALE_TPL_KEY         = 'gradecalc_scale_templates';
+const SCALE_TPL_ACTIVE_KEY  = 'gradecalc_scale_active_tpl'; // per-dept suffix appended
 
 function _stReadAll()      { try { return JSON.parse(localStorage.getItem(SCALE_TPL_KEY)) || []; } catch(e) { return []; } }
 function _stWriteAll(arr)  { localStorage.setItem(SCALE_TPL_KEY, JSON.stringify(arr)); }
 
-function stGetSaved()      { return _stReadAll(); }
+// User-saved presets, scoped to the active department. Presets saved
+// before dept-tagging existed are treated as CNGB for back-compat.
+function stGetSaved(dept) {
+  const d = dept || grDeptForScale();
+  return _stReadAll().filter(t => (t.dept || 'CNGB') === d);
+}
+function stGetAllSaved() { return _stReadAll(); }
+
 function stGetById(id) {
   if (id && id.startsWith('__scale_builtin'))
     return BUILTIN_SCALE_TEMPLATES.find(t => t.id === id) || null;
@@ -1491,6 +1596,7 @@ function stSave(name, scale) {
   const all = _stReadAll();
   const tpl = {
     name, scale,
+    dept:      grDeptForScale(),
     id:        'stpl_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
     createdAt: Date.now(),
     builtin:   false,
@@ -1517,9 +1623,11 @@ function stRename(id, name) {
   return true;
 }
 
-function stGetActiveId()   { return localStorage.getItem(SCALE_TPL_ACTIVE_KEY) || null; }
-function stSetActiveId(id) { localStorage.setItem(SCALE_TPL_ACTIVE_KEY, id); }
-function stClearActive()   { localStorage.removeItem(SCALE_TPL_ACTIVE_KEY); }
+// Active preset id is tracked per department, so picking a preset while
+// working on IENG doesn't affect what's "active" for CNGB or FE.
+function stGetActiveId()   { return localStorage.getItem(SCALE_TPL_ACTIVE_KEY + '_' + grDeptForScale()) || null; }
+function stSetActiveId(id) { localStorage.setItem(SCALE_TPL_ACTIVE_KEY + '_' + grDeptForScale(), id); }
+function stClearActive()   { localStorage.removeItem(SCALE_TPL_ACTIVE_KEY + '_' + grDeptForScale()); }
 
 (function () {
   const _orig = window.initGradeScreen;
@@ -1634,6 +1742,9 @@ function _stInjectUI() {
     `);
   }
 
+  const badge = document.getElementById('grScaleDeptBadge');
+  if (badge) badge.textContent = '· ' + grDeptForScale();
+
   _stRenderActiveBar();
   _stRenderTemplateList();
 }
@@ -1650,11 +1761,12 @@ function _stRenderActiveBar() {
 
 function _stRenderTemplateList() {
   const activeId = stGetActiveId();
+  const dept = grDeptForScale();
 
   const bl = document.getElementById('stBuiltinList');
   if (!bl) return;
   bl.innerHTML = '';
-  BUILTIN_SCALE_TEMPLATES.forEach(tpl => {
+  BUILTIN_SCALE_TEMPLATES.filter(tpl => tpl.dept === dept).forEach(tpl => {
     const isActive = tpl.id === activeId;
     const item = document.createElement('div');
     item.className = 'gr-tpl-item' + (isActive ? ' gr-active-tpl' : '');
@@ -1695,14 +1807,12 @@ function _stRenderTemplateList() {
 
 function _stScaleSummary(scale) {
   if (!scale || !scale.length) return '';
-  const aa = scale[0];
-  const dd = scale.find(([,code]) => code === 'DD');
-  const fd = scale.find(([,code]) => code === 'FD');
-  const parts = [];
-  if (aa) parts.push(`AA ≥ ${aa[0]}`);
-  if (dd) parts.push(`DD ≥ ${dd[0]}`);
-  if (fd) parts.push(`FD ≥ ${fd[0]}`);
-  parts.push('FF = 0');
+  const top    = scale[0];
+  const bottom = scale[scale.length - 1];
+  const mid    = scale[Math.floor((scale.length - 1) / 2)];
+  const parts  = [`${top[1]} ≥ ${top[0]}`];
+  if (mid && mid !== top && mid !== bottom) parts.push(`${mid[1]} ≥ ${mid[0]}`);
+  parts.push(`${bottom[1]} = 0`);
   return parts.join(' · ');
 }
 
@@ -2158,8 +2268,8 @@ function _eiValidateAndPreview(raw) {
       if (typeof t.name !== 'string' || !t.name.trim()) {
         errors.push(`Item ${i + 1}: missing name`); return;
       }
-      if (!Array.isArray(t.scale) || t.scale.length !== 9) {
-        errors.push(`"${t.name}": scale must have exactly 9 entries`); return;
+      if (!Array.isArray(t.scale) || t.scale.length < 2) {
+        errors.push(`"${t.name}": scale must have at least 2 entries`); return;
       }
       const dupe = existing.includes(t.name.trim().toLowerCase());
       valid.push({ ...t, _dupe: dupe });

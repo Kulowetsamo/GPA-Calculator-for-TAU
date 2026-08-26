@@ -2,10 +2,21 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <meta name="mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-capable" content="yes"/>
     <title>GPA Calculator</title>
+    <meta name="theme-color" content="#0d0d0d"/>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <script>
+        if('serviceWorker' in navigator && (location.protocol==='https:'||location.protocol==='http:')){
+            addEventListener('load',function(){
+                navigator.serviceWorker.register('service-worker.js').catch(function(){});
+            });
+        }
+    </script>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="gr_style.css">
     <style>
@@ -108,6 +119,44 @@
         body.light .ei-preview-skip { color: #7a6f50; opacity: 0.85; }
         body.light .ei-preview-error { color: #a00; }
         body.light .ei-preview-summary { border-top-color: #ddd; }
+
+        /* Start year (academic labels) */
+        .start-year-row { display: none; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+        .start-year-row.visible { display: flex; }
+        .start-year-row label { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+        .start-year-row input { width: 96px; background: var(--surface2, rgba(255,255,255,0.05)); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-family: 'DM Mono', monospace; font-size: 13px; }
+        .start-year-hint { font-size: 11px; opacity: 0.75; }
+
+        /* Exams tab */
+        .ex-header { padding: 20px 16px 4px; }
+        .ex-title { font-size: 18px; font-weight: 600; color: var(--text); }
+        .ex-sub { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+        .ex-empty { padding: 40px 24px; text-align: center; }
+        .ex-empty-title { font-size: 14px; font-weight: 600; color: var(--text); }
+        .ex-empty-sub { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+        .ex-group-list { display: flex; flex-direction: column; gap: 12px; padding: 0 16px 24px; }
+        .ex-group { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+        .ex-group-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+        .ex-group-name { font-size: 14px; font-weight: 600; color: var(--text); }
+        .ex-group-sem { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
+        .ex-group-avg { text-align: right; flex-shrink: 0; }
+        .ex-avg-pct { font-size: 16px; font-weight: 700; color: var(--accent2); font-family: 'DM Mono', monospace; }
+        .ex-avg-letter { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+        .ex-entries { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+        .ex-entry { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: var(--surface2); border-radius: 8px; font-size: 12px; }
+        .ex-entry-main { display: flex; align-items: center; gap: 8px; }
+        .ex-entry-type { font-weight: 600; color: var(--text); }
+        .ex-entry-score { font-family: 'DM Mono', monospace; color: var(--accent2); }
+        .ex-entry-weight { font-family: 'DM Mono', monospace; color: var(--muted); font-size: 10px; }
+        .ex-entry-sub { display: flex; align-items: center; gap: 8px; }
+        .ex-entry-date { font-family: 'DM Mono', monospace; color: var(--muted); font-size: 10px; }
+        .ex-del-btn { background: none; border: none; color: #e05050; font-size: 16px; line-height: 1; cursor: pointer; padding: 0 2px; }
+        .ex-apply-btn { width: 100%; margin-top: 12px; background: none; border: 1px solid var(--accent2); color: var(--accent2); border-radius: 8px; padding: 10px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer; }
+        .ex-apply-btn:active { background: var(--accent2); color: #fff; }
+        .ex-modal-select { width: 100%; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: 'DM Sans', sans-serif; font-size: 14px; margin-bottom: 12px; }
+        .ex-modal-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .ex-modal-row input { flex: 1; min-width: 0; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 12px 10px; font-family: 'DM Sans', sans-serif; font-size: 14px; }
+        .ex-modal-slash { color: var(--muted); font-family: 'DM Mono', monospace; }
     </style>
 </head>
 <body>
@@ -145,25 +194,15 @@
                 <div class="banner-label" id="cumLabel">Cumulative</div>
                 <div class="banner-gpa" id="cumGpa">—</div>
                 <div class="banner-sub" id="cumSubs"></div>
+                <div class="cum-progress"><div id="cumProgress" class="cum-progress-bar"></div></div>
                 <div id="honorBadge" style="display:none;" class="honor-badge"></div>
             </div>
         </div>
         <div class="history-wrap" id="historyWrap"></div>
-        <div class="whatif-bar" id="whatifBar">
-            <div>
-                <div class="whatif-label">What-If GPA</div>
-                <div class="whatif-gpa" id="whatifGpa">—</div>
-                <div class="whatif-delta" id="whatifDelta"></div>
-            </div>
-            <button style="background:none;border:1px solid #3a3a6e;color:#9090d0;border-radius:8px;padding:6px 12px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;" onclick="resetWhatIf()">Reset</button>
-        </div>
         <div class="btn-row">
             <button class="save-btn" onclick="saveSemester()">Save GPA</button>
             <button class="save-btn add-course-btn" onclick="openAddCourseModal()">Add Course / Retake</button>
-            <button class="whatif-btn" id="whatifToggle" onclick="toggleWhatIf()">What-If</button>
-            <button class="whatif-btn" style="grid-column:1/-1;border-color:#2a3a4a;color:var(--accent2);" onclick="openTargetModal()">🎯 Target GPA</button>
         </div>
-        <button id="addCourseStandalone" class="whatif-btn" onclick="openAddCourseModal()">+ Add Course / Retake</button>
         <div class="col-header"><span>Course</span><span>Cr</span><span>Grade</span></div>
         <div class="course-list" id="courseList"></div>
     </div>
@@ -188,6 +227,11 @@
                     <div class="ap-name" id="activeProfileBarName">None</div>
                 </div>
             </div>
+            <div class="start-year-row" id="startYearRow">
+                <label for="startYearInput">Start year</label>
+                <input type="number" id="startYearInput" min="2000" max="2100" placeholder="e.g. 2023" onchange="onStartYearChange(this.value)">
+                <span class="start-year-hint">labels like 2023–24 Fall</span>
+            </div>
             <div style="display:flex;gap:10px;margin-bottom:10px;">
                 <button class="view-transcript-btn" style="flex:1;width:auto;margin:0;" onclick="showScreen('transcript')">View Transcript</button>
                 <button class="new-profile-btn" style="flex:1;width:auto;margin:0;background:var(--surface2);color:var(--accent2);border:1px solid var(--accent2);" onclick="toggleTheme()">Switch Theme</button>
@@ -204,6 +248,11 @@
             <div class="profile-list" id="profileList"></div>
         </div>
     </div>
+</div>
+
+<!-- EXAMS -->
+<div class="screen" id="examsScreen">
+    <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;" id="examScreenScroll"></div>
 </div>
 
 <!-- TRANSCRIPT -->
@@ -227,6 +276,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         View
     </button>
+    <button class="nav-btn" id="navExams" onclick="showScreen('exams')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg>
+        Exams
+    </button>
     <button class="nav-btn" id="navProfiles" onclick="showScreen('profiles')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
         Profiles
@@ -235,7 +288,7 @@
         <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
         Theme
     </button>
-    <div style="position:absolute;bottom:6px;right:20px;font-family:'DM Mono',monospace;font-size:8px;color:#556644;letter-spacing:0.08em;pointer-events:none;">v1.2.1</div>
+    <div style="position:absolute;bottom:6px;right:20px;font-family:'DM Mono',monospace;font-size:8px;color:#556644;letter-spacing:0.08em;pointer-events:none;">v1.3.2</div>
 </div>
 
 <!-- MODALS -->
@@ -268,11 +321,12 @@
 
 <div class="modal-overlay" id="resetModal">
   <div class="modal">
-    <h2>Reset Semester</h2>
-    <p>Clear all courses and grades for this semester?</p>
+    <h2>Reset</h2>
+    <p id="resetModalText">Clear grades for the current semester, or everything saved in this profile?</p>
     <div style="display:flex;gap:8px;margin-top:16px;">
       <button class="modal-cancel" onclick="closeResetModal()">Cancel</button>
-      <button class="modal-confirm" onclick="doReset()" style="background:#c06060;">Reset</button>
+      <button class="modal-confirm" onclick="doReset('sem')" style="background:#c06060;">This Semester</button>
+      <button class="modal-confirm" onclick="doReset('all')" style="background:#a03030;">All Semesters</button>
     </div>
   </div>
 </div>
@@ -288,10 +342,8 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="targetModal"><div class="modal">...</div></div>
-
 <!-- TOAST -->
-<div class="toast" id="toast"><div class="toast-inner"><span id="toastMsg" class="toast-msg"></span><button id="toastUndo" class="toast-undo" onclick="undoDelete()">Undo</button></div><div class="toast-progress"><div id="toastBar" class="toast-progress-bar"></div></div></div>
+<div class="toast" id="toast"><div class="toast-inner"><span id="toastMsg" class="toast-msg"></span><button id="toastUndo" class="toast-undo" onclick="undoAction()">Undo</button></div><div class="toast-progress"><div id="toastBar" class="toast-progress-bar"></div></div></div>
 
 <!-- IMAGE OVERLAY -->
 <div id="imgOverlay" style="display:none;position:fixed;inset:0;background:#000;z-index:500;flex-direction:column;align-items:center;justify-content:flex-start;overflow-y:auto;">
@@ -313,6 +365,7 @@
 <script src="calc.js" defer></script>
 <script src="ui.js" defer></script>
 <script src="export.js" defer></script>
+<script src="exams.js" defer></script>
 <script src="app.js" defer></script>
 
 <script>

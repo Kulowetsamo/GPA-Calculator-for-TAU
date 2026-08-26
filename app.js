@@ -7,7 +7,7 @@ function showScreen(name,fromPopState){
   if(ov) ov.style.display='none';
 
   // Close any open modals
-  ['newProfileModal','deleteModal','resetModal','renameModal','targetModal'].forEach(id=>{
+  ['newProfileModal','deleteModal','resetModal','renameModal','addExamModal'].forEach(id=>{
     document.getElementById(id)?.classList.remove('open');
   });
 
@@ -15,13 +15,16 @@ function showScreen(name,fromPopState){
   document.getElementById('gradeScreen').classList.toggle('active',name==='grade');
   document.getElementById('transcriptScreen').classList.toggle('active',name==='transcript');
   document.getElementById('profileScreen').classList.toggle('active',name==='profiles');
+  document.getElementById('examsScreen')?.classList.toggle('active',name==='exams');
   document.getElementById('navCalc').classList.toggle('active',name==='calc');
   document.getElementById('navGrade').classList.toggle('active',name==='grade');
   document.getElementById('navTranscript').classList.toggle('active',name==='transcript');
   document.getElementById('navProfiles').classList.toggle('active',name==='profiles');
+  document.getElementById('navExams')?.classList.toggle('active',name==='exams');
   if(name==='profiles')   renderProfileList();
   if(name==='transcript') renderTranscript();
   if(name==='grade')      initGradeScreen();
+  if(name==='exams')      renderExamsScreen();
 
   if(!fromPopState){
     if(name==='calc'){
@@ -77,6 +80,7 @@ function onDeptChange(){
   persistToProfile();
   loadCourses();
   if(window.updateSwipeDots) updateSwipeDots();
+  if(typeof grSyncScaleToDept==='function') grSyncScaleToDept();
 }
 
 function updateSummerOptionState(){
@@ -115,31 +119,84 @@ function loadProfile(id){
 }
 
 // ── Android back button bridge ────────────────────────────────
+const _OVERLAY_IDS=['newProfileModal','deleteModal','resetModal','renameModal',
+  'addCourseModal','tplPickModal','addExamModal','gpaEiModal',
+  'grSaveModal','grDeleteModal','grRenameModal','grSaveCourseModal'];
+
+function overlayOpen(){
+  const ov=document.getElementById('imgOverlay');
+  if(ov&&ov.style.display!=='none') return true;
+  return _OVERLAY_IDS.some(id=>{
+    const m=document.getElementById(id);
+    return m&&(m.classList.contains('open')||m.style.display==='flex');
+  })||!!document.querySelector('.course-picker-overlay.open');
+}
+
+// Close the topmost overlay / modal. Returns true if something was closed.
+function closeTopOverlay(){
+  const ov=document.getElementById('imgOverlay');
+  if(ov&&ov.style.display!=='none'){ ov.style.display='none'; return true; }
+  for(const id of _OVERLAY_IDS){
+    const m=document.getElementById(id);
+    if(!m) continue;
+    if(m.style.display==='flex'){
+      if(id==='gpaEiModal'&&typeof gpaEiCloseModal==='function'){ gpaEiCloseModal(); }
+      else{ m.style.display='none'; }
+      return true;
+    }
+    if(m.classList.contains('open')){ m.classList.remove('open'); return true; }
+  }
+  const picker=document.querySelector('.course-picker-overlay.open');
+  if(picker){ picker.classList.remove('open'); return true; }
+  // Exams course detail → back to its semester list
+  if(_currentScreen==='exams'&&typeof exViewCourse!=='undefined'&&exViewCourse){ closeExamCourse(); return true; }
+  return false;
+}
+
 window.handleBackButton = function(){
-  // 1. Image overlay open → close it
-  const ov = document.getElementById('imgOverlay');
-  if(ov && ov.style.display !== 'none'){
-    ov.style.display = 'none';
-    return true;
-  }
-  // 2. Any modal open → close it
-  const modals = ['newProfileModal','deleteModal','resetModal','renameModal','targetModal'];
-  const grModals = ['grSaveModal','grDeleteModal','grRenameModal','grSaveCourseModal'];
-  const openGrModal = grModals.find(id => document.getElementById(id)?.classList.contains('open'));
-  if(openGrModal){ document.getElementById(openGrModal).classList.remove('open'); return true; }
-  const openModal = modals.find(id => document.getElementById(id)?.classList.contains('open'));
-  if(openModal){
-    document.getElementById(openModal).classList.remove('open');
-    return true;
-  }
-  // 3. Not on calc tab → go to calc
+  if(closeTopOverlay()) return true;
   if(_currentScreen !== 'calc'){
     showScreen('calc');
     return true;
   }
-  // 4. Already on calc → let Android exit the app
   return false;
 };
+
+// ── keyboard controls (desktop) ───────────────────────────────
+document.addEventListener('keydown',function(e){
+  const t=document.activeElement;
+  const typing=t&&(t.tagName==='INPUT'||t.tagName==='SELECT'||t.tagName==='TEXTAREA'||t.isContentEditable);
+
+  // Esc: close topmost overlay, else head back to Calc
+  if(e.key==='Escape'){
+    if(closeTopOverlay()){ e.preventDefault(); return; }
+    if(!typing&&_currentScreen!=='calc') showScreen('calc');
+    return;
+  }
+
+  if(typing||e.ctrlKey||e.metaKey||e.altKey) return;
+  if(e.key.startsWith('Arrow')){
+    if(overlayOpen()) return;
+    const dir=e.key==='ArrowRight'?1:-1;
+    if(_currentScreen==='calc'&&window.calcSemNav){ window.calcSemNav(dir); }
+    else if(_currentScreen==='exams'&&typeof examsSemNav==='function'){ examsSemNav(dir); }
+    return;
+  }
+  if(overlayOpen()) return;
+
+  // 1-5: jump between tabs
+  const tabMap=['calc','grade','transcript','exams','profiles'];
+  if(e.key>='1'&&e.key<='5'&&!isNaN(+e.key)){ showScreen(tabMap[+e.key-1]); return; }
+
+  // T: toggle theme
+  if(e.key==='t'||e.key==='T'){ toggleTheme(); return; }
+
+  // Transcript shortcuts
+  if(_currentScreen==='transcript'){
+    if(e.key==='p'||e.key==='P'){ if(typeof printTranscript==='function') printTranscript(); }
+    else if(e.key==='c'||e.key==='C'){ if(typeof copyTranscript==='function') copyTranscript(); }
+  }
+});
 
 
 loadTheme();

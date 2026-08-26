@@ -5,7 +5,7 @@ function getActiveProfileId(){ return localStorage.getItem('gpa_activeProfile')|
 function setActiveProfileId(id){ localStorage.setItem('gpa_activeProfile',id); }
 
 let activeKey='Year 1|Fall';
-let semData={}, semHistory={};
+let semData={}, semHistory={}, examData=[];
 let activeProfileId=null, deleteTargetId=null, deleteTargetName=null, deletedProfile=null;
 
 function updateDeptSelectState() {
@@ -18,21 +18,26 @@ function updateDeptSelectState() {
 function loadActiveProfile(){
   activeProfileId=getActiveProfileId();
   const profiles=getAllProfiles();
+  if(typeof exViewCourse!=='undefined'){ exViewCourse=null; }
+  if(typeof _examCtx!=='undefined'){ _examCtx=null; }
   if(activeProfileId&&profiles[activeProfileId]){
     semData    = profiles[activeProfileId].semData    ||{};
     semHistory = profiles[activeProfileId].semHistory ||{};
+    examData   = profiles[activeProfileId].examData   ||[];
     activeDept = profiles[activeProfileId].dept       ||'CNGB';
     document.getElementById('deptSel').value=activeDept;
     document.getElementById('activeProfileName').textContent    =profiles[activeProfileId].name;
     document.getElementById('activeProfileBarName').textContent =profiles[activeProfileId].name;
   } else {
-    semData={}; semHistory={};
+    semData={}; semHistory={}; examData=[];
     activeDept = 'CNGB';
     document.getElementById('deptSel').value = 'CNGB';
     document.getElementById('activeProfileName').textContent    ='No Profile';
     document.getElementById('activeProfileBarName').textContent ='None';
   }
   updateDeptSelectState();
+  if(typeof grSyncScaleToDept==='function') grSyncScaleToDept();
+  if(typeof renderExamsScreen==='function' && document.getElementById('examsScreen')?.classList.contains('active')) renderExamsScreen();
 }
 
 function persistToProfile(){
@@ -41,6 +46,7 @@ function persistToProfile(){
   if(!profiles[activeProfileId]) return;
   profiles[activeProfileId].semData    =semData;
   profiles[activeProfileId].semHistory =semHistory;
+  profiles[activeProfileId].examData   =examData;
   profiles[activeProfileId].dept       =activeDept;
   saveAllProfiles(profiles);
 }

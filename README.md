@@ -27,26 +27,42 @@ The app runs in any modern browser and can also be packaged as a native Android 
 ## Features
 
 All mandatory and elective courses for three departments are included — just select your department, year, and semester; the course list updates automatically.
-
+ 
 The GPA recalculates on every grade change. The status bar shows your term GPA, earned credits, and cumulative GPA including honors status (High Honor ★, Honor ✦, or warning ⚠).
-
+ 
 **Semester swipe** — swipe left or right on the calculator screen (or tap the dot indicators) to move between semesters without touching the dropdowns.
-
-**What-if Mode** temporarily overrides any grade to see how it would affect your cumulative GPA without saving the changes.
-
-**Target GPA Calculator** calculates the average GPA needed in the next semester to reach or maintain a target.
-
+ 
 **Profiles** — create separate profiles (e.g. one per student or department). Each profile stores all grades, GPA history, and department independently. Profiles can be exported as JSON and shared or imported on another device.
-
+ 
 **Profile filter tabs** on the Profiles screen let you filter the list by department (ALL / CNGB / IENG / FE).
-
+ 
 **Transcript view** — a clean, printable transcript showing saved semester GPAs and cumulative progress. Can be copied as text, shared via the system share sheet, or exported as a PNG image.
-
+ 
 **Grade Calculator** — a standalone tool for computing a final course score from weighted components. Includes templates, a customisable grading scale, scale presets, and export/import for both templates and scales.
-
+ 
 **"What do I need?" panel** — displayed below the Grade Calc result, it shows the exact score needed on the first blank component to reach any target letter grade, and a full table from AA to FF.
-
+ 
 Toggle between **dark and light themes** that automatically follow the system preference.
+
+### What's new in v1.3.1
+
+* **Exam tracker redesign** — the Exams tab is now a guided flow: pick a semester → tap a course → log grades. Courses show how many results are logged plus a running weighted average and estimated letter. From any course you can pull in a **grading template from the Grade tab**, which creates its weighted components (Midterm 1, Final, Quizzes, extras…) as fill-in-later slots — and push the result to the Calc tab either directly or via **↻ As Retake**, which adds a separate retake attempt (latest attempt counts toward cGPA; repeat applies update it instead of duplicating). "Apply" warns if components are still unscored.
+* **Add Course / Retake in Exams, synced both ways** — the "+ Add Course / Retake" button on the Exams tab adds a course to the selected semester's Calc data directly, so it appears in **both tabs instantly**; courses added from the Calc tab show up in the Exams list automatically (badged RETAKE). Applying grades to a retake-slot course writes to that attempt directly. Retakes can be removed anytime via the **✕ chip** on the row or the remove button in its detail view — this also cleans up that slot's logged exam results and re-indexes later slots.
+* **Backup reminders** — the Profiles screen nudges you when your data has never been exported or the last backup is 14+ days old; any export/share/clipboard copy resets the timer.
+
+### What's new in v1.3.0
+
+* **Confetti celebration** — saving a semester with a 3.0+ GPA triggers a confetti burst (gold for High Honor territory).
+* **Animated GPA counters** — semester and cumulative GPAs count up/down smoothly instead of snapping.
+* **Cumulative progress bar** — the Cumulative banner now shows your progress toward a perfect 4.00 (color-coded: red under 2.0, gold at 3.5+).
+* **Transcript stats card** — best semester, weighted average GPA, total credits, and an SVG sparkline chart of your semester-by-semester GPA trend.
+* **True system theme following** — with no saved preference the app now follows the OS light/dark setting live (previously it always started light).
+* **Undo for grade edits** — changing any grade shows an "AA → BB"-style toast with an Undo button; restoring also reverts S/U marks on pass/fail courses.
+* **Keyboard navigation** — ←/→ arrow keys switch semesters on desktop (ignored while typing or when a modal is open).
+* **Print / PDF transcript** — a Print button on the View tab opens the browser print dialog with a clean black-on-white layout.
+* **PWA support** — web app manifest + service worker make the hosted app installable on phones and fully offline-capable (skipped automatically inside the Android WebView).
+* **Visual polish** — ambient background glow, gradient banners, staggered course-row entrance animation, hover/press micro-interactions on buttons and chips, custom scrollbars.
+* **Android assets resynced** — `app/src/main/assets` was stale (missing `exams.js` and `export.js`); all web files are now in sync with the root folder.
 
 ---
 
@@ -99,15 +115,17 @@ The Android app loads `index.html` from the assets folder. Any changes to HTML/C
 
 ```
 ├── index.html          — app shell, all screens and modals
+├── manifest.webmanifest — PWA manifest (installable web app)
+├── service-worker.js   — offline cache for the hosted PWA
 ├── style.css           — main app styles (dark/light theme, layout)
 ├── gr_style.css        — Grade Calc styles
 ├── data.js             — course data for CNGB, IENG, FE; grade point table
 ├── gr_storage.js       — Grade Calc template storage and built-in template definitions
 ├── gr_calc.js          — Grade Calc engine and screen controller (initGradeScreen)
 ├── storage.js          — GPA profile storage helpers; semData / semHistory state
-├── calc.js             — GPA calculation, What-if mode, Target GPA
-├── ui.js               — rendering (course rows, transcript, profile list),
-│                         export/import for profiles, swipe navigation, toasts
+├── calc.js             — GPA calculation and semester save logic
+├── ui.js               — rendering (course rows, transcript, profile list), swipe navigation, toasts
+├── export.js           — transcript image generation and share/save/copy               
 └── app.js              — screen routing, semester navigation, Android back-button bridge
 ```
 
@@ -121,6 +139,21 @@ Scripts are loaded with `defer` in this order:
 gr_storage.js → gr_calc.js → data.js → storage.js → calc.js → ui.js → app.js
 ```
 
+### Keyboard Controls
+
+| Key | Context | Action |
+|---|---|---|
+| `1` – `5` | anywhere | Jump to tab: 1 Calc · 2 Grade · 3 View · 4 Exams · 5 Profiles |
+| `←` / `→` | Calc tab | Previous / next semester |
+| `←` / `→` | Exams tab (course list) | Previous / next semester |
+| `Esc` | any overlay/modal open | Close the topmost one (course detail in Exams counts too) |
+| `Esc` | on a non-Calc tab | Return to the Calc tab |
+| `T` | anywhere | Toggle dark / light theme |
+| `P` | View (transcript) tab | Open the print dialog (save as PDF) |
+| `C` | View (transcript) tab | Copy transcript as text |
+
+All shortcuts are ignored while you are typing in an input/select/textarea, when a modifier key (`Ctrl`/`Cmd`/`Alt`) is held, or while an overlay is open (except `Esc`). The Android hardware back button follows the same close-overlay → return-to-Calc → exit chain as `Esc`.
+
 ---
 
 ## Usage Guide
@@ -128,22 +161,12 @@ gr_storage.js → gr_calc.js → data.js → storage.js → calc.js → ui.js �
 ### GPA Calculator
 
 1. **Choose your department and semester** — use the dropdowns at the top of the Calculator screen. The course list updates automatically. The department selector is locked while a profile is active (department is set per profile).
-
 2. **Navigate semesters** — use the Year/Semester dropdowns, or swipe left/right on the calculator screen. The dot strip at the bottom shows your position across all eight semesters.
-
 3. **Enter grades** — select a letter grade from the dropdown on each course row. The semester GPA and credits update instantly. Courses graded `SKIP` or `S/U` (zero-credit) are excluded.
-
 4. **Save the semester** — press **Save GPA**. This writes the semester GPA and credit count into the profile's history and updates the cumulative GPA banner.
-
 5. **Create a profile** *(optional)* — go to the **Profiles** tab and tap **+ New Profile**. Give it a name and choose a department. Once active, all saved data is tied to that profile.
-
-6. **Use What-If mode** — tap **What-If** to enter temporary grade overrides. The cumulative GPA updates live; changes are not saved. Exit What-If to return to real grades.
-
-7. **Set a target GPA** — tap **Target GPA**, enter your desired cumulative GPA, and the tool will calculate what you need next semester.
-
-8. **View and share your transcript** — switch to the **View** tab. Use the action buttons to copy a text summary, share via the system share sheet, or export the transcript as a PNG image.
-
-9. **Export or import profiles** — at the bottom of the **Profiles** tab, use the export buttons to download all profiles or just the active one as a `.json` file. Tap **Import** to load a file or paste JSON directly.
+6. **View and share your transcript** — switch to the **View** tab. Use the action buttons to copy a text summary, share via the system share sheet, or export the transcript as a PNG image.
+7. **Export or import profiles** — at the bottom of the **Profiles** tab, use the export buttons to download all profiles or just the active one as a `.json` file. Tap **Import** to load a file or paste JSON directly.
 
 ---
 

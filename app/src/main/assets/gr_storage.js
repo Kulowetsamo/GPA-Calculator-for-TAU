@@ -93,7 +93,7 @@ const _RAW_BUILTINS = [
     hasLab: false,
   },
   {
-    name: 'Phsyics II',
+    name: 'Physics II',
     weights: { midterm: 60, final: 40, quizzes: 0, lab: 10, bonusQuizzes: 0 },
     midtermCount: 2,
     hasQuizzes: false,
@@ -140,7 +140,6 @@ function _normalize(tpl) {
   };
 }
 
-// ── Public API ────────────────────────────────────────────────
 function getBuiltinTemplates() { return BUILTIN_TEMPLATES; }
 function getSavedTemplates()   { return _readAll().map(_normalize); }
 

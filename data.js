@@ -1,7 +1,50 @@
 // ── grade systems ─────────────────────────────────────────────
-const GRADES       = ["AA","BA","BB","CB","CC","DC","DD","FD","FF","SKIP"];
-const GRADE_POINTS = {AA:4.0,BA:3.5,BB:3.0,CB:2.5,CC:2.0,DC:1.5,DD:1.0,FD:0.5,FF:0.0};
+const GRADES = [
+  "AA","BA+","BA","BB+","BB","CB+","CB","CC+","CC","DC+","DC","DD+","DD",
+  "FD","FF",
+  "A1","A2","B1","B2","C1","C2*","D1*","D2*","F3","F2","F1",
+  "G","K","H","M","SKIP"
+];
+const GRADE_POINTS = {
+  AA: 4.0,
+  "BA+": 3.75,
+  BA: 3.5,
+  "BB+": 3.25,
+  BB: 3.0,
+  "CB+": 2.75,
+  CB: 2.5,
+  "CC+": 2.25,
+  CC: 2.0,
+  "DC+": 1.75,
+  DC: 1.5,
+  "DD+": 1.25,
+  DD: 1.0,
+  FD: 0.5,
+  FF: 0.0,
+  A1: 4.0,
+  A2: 3.5,
+  B1: 3.0,
+  B2: 2.5,
+  C1: 2.0,
+  "C2*": 1.5,
+  "D1*": 1.0,
+  "D2*": 0.5,
+  F3: 0.0,
+  F2: 0.0,
+  F1: 0.0,
+  G: 0.0,
+  K: 0.0,
+  H: 0.0,
+  M: 0.0,
+};
 const ZERO_CR_GRADES = ["S","U","SKIP"];
+
+const DEPT_GRADE_CODES = {
+  CNGB: ["AA","BA","BB","CB","CC","DC","DD","FD","FF","SKIP"],
+  IENG: ["AA","BA+","BA","BB+","BB","CB+","CB","CC+","CC","DC+","DC","DD+","DD","FF","SKIP"],
+  FE: ["A1","A2","B1","B2","C1","C2*","D1*","D2*","F3","F2","F1","G","K","H","M","SKIP"],
+};
+function getGradeCodesForDept(){ return DEPT_GRADE_CODES[activeDept] || DEPT_GRADE_CODES.CNGB; }
 
 const SEM_ORDER = [
   ["Year 1","Fall"],["Year 1","Spring"],["Year 1","Summer"],
@@ -227,3 +270,31 @@ const FE_ELECTIVES = {};
 let activeDept = 'CNGB';
 function getCoursePresets(){ return activeDept==='IENG'?IENG_PRESETS:activeDept==='FE'?FE_PRESETS:CNGB_PRESETS; }
 function getElectivePresets(){ return activeDept==='IENG'?IENG_ELECTIVES:activeDept==='FE'?FE_ELECTIVES:CNGB_ELECTIVES; }
+
+// ── academic-year labels ─────────────────────────────────────
+// Profiles may store startYear (e.g. 2023). With it, "Year 1|Fall"
+// renders as "2023–24 Fall"; without it labels fall back to the
+// plain "Year 1 · Semester 1" format.
+function _yearNum(year){ return parseInt(String(year).replace(/\D/g,''),10)||1; }
+function getStartYear(){
+  const profiles=getAllProfiles();
+  const p=activeProfileId&&profiles[activeProfileId]?profiles[activeProfileId]:null;
+  return (p&&p.startYear)?p.startYear:null;
+}
+function semLabel(key,opts){
+  const short=!!(opts&&opts.short);
+  const [year,sem]=key.split('|');
+  const sy=getStartYear();
+  const yIdx=_yearNum(year);
+  if(!sy){
+    if(short) return sem==='Summer'?'Y'+yIdx+' Summer':'Y'+yIdx+'S'+semNumber(sem);
+    return sem==='Summer'?'Year '+yIdx+' · Summer School':'Year '+yIdx+' · Semester '+semNumber(sem);
+  }
+  const a=sy+yIdx-1,b=a+1;
+  if(short){
+    const cal=sem==='Fall'?a:b;
+    const tag=sem==='Fall'?'F':sem==='Spring'?'Sp':'Su';
+    return tag+' \u2019'+String(cal%100).padStart(2,'0');
+  }
+  return sem==='Summer'?b+' Summer':a+'\u2013'+String(b).slice(-2)+' '+sem;
+}
