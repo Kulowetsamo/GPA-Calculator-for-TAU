@@ -693,7 +693,11 @@ function makeRetakeRow(name,credits,savedGrade){
   select.dataset.prev=savedGrade||'';
   select.appendChild(Object.assign(document.createElement('option'),{value:'',textContent:'—'}));
   getGradeCodesForDept().filter(grade=>grade!=='SKIP').forEach(grade=>select.appendChild(Object.assign(document.createElement('option'),{value:grade,textContent:grade,selected:grade===savedGrade})));
+<<<<<<< HEAD
   select.onchange=()=>{recordGradeUndo(select);select.classList.toggle('has-grade',!!select.value);row.classList.toggle('graded',!!select.value);persist(activeKey);recalculate();updateCumulative();commitGradeSel(select);};
+=======
+  select.onchange=()=>{select.classList.toggle('has-grade',!!select.value);row.classList.toggle('graded',!!select.value);persist(activeKey);recalculate();updateCumulative();};
+>>>>>>> 7a9e9ed77c984f1d9e044c5cb07a69927b807f2d
   row.appendChild(select);
   const remove=document.createElement('button'); remove.className='delete-btn'; remove.textContent='×'; remove.title='Remove course';
   remove.onclick=()=>{row.remove();persist(activeKey);recalculate();updateCumulative();}; row.appendChild(remove);
