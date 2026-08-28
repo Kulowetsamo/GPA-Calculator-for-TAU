@@ -123,11 +123,7 @@ The Android app loads `index.html` from the assets folder. Any changes to HTML/C
 ├── gr_storage.js       — Grade Calc template storage and built-in template definitions
 ├── gr_calc.js          — Grade Calc engine and screen controller (initGradeScreen)
 ├── storage.js          — GPA profile storage helpers; semData / semHistory state
-<<<<<<< HEAD
 ├── calc.js             — GPA calculation and semester save logic
-=======
-├── calc.js             — GPA calculation, What-if mode, Target GPA
->>>>>>> 7a9e9ed77c984f1d9e044c5cb07a69927b807f2d
 ├── ui.js               — rendering (course rows, transcript, profile list), swipe navigation, toasts
 ├── export.js           — transcript image generation and share/save/copy               
 └── app.js              — screen routing, semester navigation, Android back-button bridge

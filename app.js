@@ -7,11 +7,7 @@ function showScreen(name,fromPopState){
   if(ov) ov.style.display='none';
 
   // Close any open modals
-<<<<<<< HEAD
   ['newProfileModal','deleteModal','resetModal','renameModal','addExamModal'].forEach(id=>{
-=======
-  ['newProfileModal','deleteModal','resetModal','renameModal','targetModal','addExamModal'].forEach(id=>{
->>>>>>> 7a9e9ed77c984f1d9e044c5cb07a69927b807f2d
     document.getElementById(id)?.classList.remove('open');
   });
 

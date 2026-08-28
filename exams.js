@@ -1,15 +1,11 @@
 // ── Exams tab ─────────────────────────────────────────────────
-<<<<<<< HEAD
 // Flow: pick a semester → tap a course → log results (free-form or
 // structured from a Grade-tab template).
 //
-=======
->>>>>>> 7a9e9ed77c984f1d9e044c5cb07a69927b807f2d
 // examData (declared in storage.js) is an array of entries scoped to the
 // active profile and persisted via persistToProfile(), same as semData.
 // Entry shape:
 // { id, dept, semKey, courseName, courseIndex, credits,
-<<<<<<< HEAD
 //   type, score, maxScore, weight, date,
 //   planned:true }          — optional; template component awaiting a score
 //                             (score === null until the user fills it in)
@@ -19,11 +15,6 @@ const EXAM_SEM_STORAGE_KEY = 'gpa_exams_sem';
 
 let exSelectedSem = null;   // 'Year 1|Fall' — semester picked on the Exams tab
 let exViewCourse = null;    // group key when a course detail view is open
-=======
-//   type, score, maxScore, weight, date }
-
-const EXAM_TYPES = ['Midterm','Final','Quiz','Homework','Project','Other'];
->>>>>>> 7a9e9ed77c984f1d9e044c5cb07a69927b807f2d
 
 function _examId(){ return 'ex_'+Date.now()+'_'+Math.floor(Math.random()*1000); }
 
@@ -33,7 +24,6 @@ function _examId(){ return 'ex_'+Date.now()+'_'+Math.floor(Math.random()*1000); 
 function getPresetsForDept(dept){ return dept==='IENG'?IENG_PRESETS:dept==='FE'?FE_PRESETS:CNGB_PRESETS; }
 function getElectivesForDept(dept){ return dept==='IENG'?IENG_ELECTIVES:dept==='FE'?FE_ELECTIVES:CNGB_ELECTIVES; }
 
-<<<<<<< HEAD
 function _exEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function _exJs(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 
@@ -76,22 +66,6 @@ function semesterCourseSlots(dept,key){
 function slotIsRetake(dept,semKey,courseIndex){
   const arr=semData[dept+'|'+semKey]||[];
   return !!(arr[courseIndex]&&arr[courseIndex].retake);
-=======
-function buildExamCourseOptions(){
-  if(!activeProfileId) return [];
-  const dept=activeDept;
-  const presets=getPresetsForDept(dept);
-  const opts=[];
-  SEM_ORDER.forEach(([year,sem])=>{
-    const key=year+'|'+sem;
-    const preset=presets[key]||[];
-    const sorted=[...preset].sort((a,b)=>b[1]-a[1]);
-    sorted.forEach(([name,credits],idx)=>{
-      if(credits>0) opts.push({name,semKey:key,courseIndex:idx,credits,semLabel:year+' · '+sem,dept});
-    });
-  });
-  return opts;
->>>>>>> 7a9e9ed77c984f1d9e044c5cb07a69927b807f2d
 }
 
 function ensureSemDataArrayForDept(dept,key){
@@ -158,7 +132,6 @@ function pctToGrade(pct,dept){
 
 function courseGroupKey(e){ return e.dept+'|'+e.semKey+'|'+e.courseIndex+'|'+e.courseName; }
 
-<<<<<<< HEAD
 // Context of the course currently open in the detail view — lets us build a
 // synthetic empty group for courses that have no logged entries yet.
 let _examCtx=null;
@@ -179,8 +152,6 @@ function getExamGroup(groupKey){
   return null;
 }
 
-=======
->>>>>>> 7a9e9ed77c984f1d9e044c5cb07a69927b807f2d
 function groupExams(){
   const groups={};
   (examData||[]).forEach(e=>{
@@ -191,18 +162,12 @@ function groupExams(){
   return groups;
 }
 
-<<<<<<< HEAD
 function isScored(e){ return e.planned?(e.score!==null&&e.score!==undefined&&!isNaN(e.score)):true; }
 
 function courseAveragePct(entries){
   let wSum=0,wtSum=0;
   entries.forEach(e=>{
     if(!isScored(e)) return;
-=======
-function courseAveragePct(entries){
-  let wSum=0,wtSum=0;
-  entries.forEach(e=>{
->>>>>>> 7a9e9ed77c984f1d9e044c5cb07a69927b807f2d
     const max=e.maxScore>0?e.maxScore:100;
     const pct=(e.score/max)*100;
     const w=e.weight>0?e.weight:1;
@@ -211,7 +176,6 @@ function courseAveragePct(entries){
   return wtSum>0?wSum/wtSum:null;
 }
 
-<<<<<<< HEAD
 // ── Grade-tab template → exam components ─────────────────────
 function templateComponents(tpl){
   const w=tpl.weights||{};
@@ -306,8 +270,6 @@ function openTplPickModal(groupKey){
 }
 function closeTplPickModal(){ document.getElementById('tplPickModal')?.classList.remove('open'); }
 
-=======
->>>>>>> 7a9e9ed77c984f1d9e044c5cb07a69927b807f2d
 // ── rendering ────────────────────────────────────────────────
 function renderExamsScreen(){
   const root=document.getElementById('examScreenScroll');
@@ -323,7 +285,6 @@ function renderExamsScreen(){
     return;
   }
 
-<<<<<<< HEAD
   if(exViewCourse){
     const g=getExamGroup(exViewCourse);
     if(g){ renderExamCourseDetail(root,g); return; }
@@ -584,67 +545,6 @@ function updatePlannedScore(id,value){
   persistToProfile();
   renderExamsScreen();
   showToast(`${e.type}: ${v}/${e.maxScore} ✓`);
-=======
-  const groups=groupExams();
-  const keys=Object.keys(groups);
-
-  let html=`
-    <div class="ex-header">
-      <div class="ex-title">Exam Results</div>
-      <div class="ex-sub">Log scores, watch your running average, and push an estimated grade into your Calc tab.</div>
-    </div>
-    <button class="save-btn" style="margin:0 16px 14px;width:calc(100% - 32px);" onclick="openAddExamModal()">+ Add Exam Result</button>
-  `;
-
-  if(!keys.length){
-    html+=`<div class="ex-empty"><div class="ex-empty-title">No exams logged yet</div><div class="ex-empty-sub">Tap "Add Exam Result" to log your first midterm, quiz, or final.</div></div>`;
-  } else {
-    // newest course activity first
-    keys.sort((a,b)=>{
-      const la=Math.max(...groups[a].entries.map(e=>e.date||'')), lb=Math.max(...groups[b].entries.map(e=>e.date||''));
-      return lb>la?1:lb<la?-1:0;
-    });
-    html+='<div class="ex-group-list">';
-    keys.forEach(k=>{
-      const g=groups[k];
-      const avg=courseAveragePct(g.entries);
-      const dept=g.dept;
-      const letter=avg!==null?pctToGrade(avg,dept):null;
-      g.entries.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-      html+=`
-        <div class="ex-group">
-          <div class="ex-group-head">
-            <div>
-              <div class="ex-group-name">${_gpaEiEsc(g.courseName)}</div>
-              <div class="ex-group-sem">${_gpaEiEsc(g.semKey.replace('|',' · '))}</div>
-            </div>
-            <div class="ex-group-avg">
-              <div class="ex-avg-pct">${avg!==null?avg.toFixed(1)+'%':'—'}</div>
-              <div class="ex-avg-letter">${letter?'≈ '+letter:''}</div>
-            </div>
-          </div>
-          <div class="ex-entries">
-            ${g.entries.map(e=>`
-              <div class="ex-entry">
-                <div class="ex-entry-main">
-                  <span class="ex-entry-type">${_gpaEiEsc(e.type)}</span>
-                  <span class="ex-entry-score">${e.score}/${e.maxScore}</span>
-                  ${e.weight?`<span class="ex-entry-weight">wt ${e.weight}%</span>`:''}
-                </div>
-                <div class="ex-entry-sub">
-                  <span class="ex-entry-date">${e.date||''}</span>
-                  <button class="ex-del-btn" onclick="deleteExamEntry('${e.id}')" title="Delete">×</button>
-                </div>
-              </div>`).join('')}
-          </div>
-          ${letter?`<button class="ex-apply-btn" onclick="applyExamGroupGrade('${k.replace(/'/g,"\\'")}')">Apply ${letter} to Calc tab course</button>`:''}
-        </div>`;
-    });
-    html+='</div>';
-  }
-
-  root.innerHTML=html;
->>>>>>> 7a9e9ed77c984f1d9e044c5cb07a69927b807f2d
 }
 
 function deleteExamEntry(id){
@@ -654,7 +554,6 @@ function deleteExamEntry(id){
   showToast('Exam entry deleted');
 }
 
-<<<<<<< HEAD
 function applyExamGroupGrade(key,asRetake){
   const g=getExamGroup(key);
   if(!g) return;
@@ -688,21 +587,6 @@ function applyExamGroupGrade(key,asRetake){
 
   const verb=g.isRetake?' updated in ':' applied'+(asRetake?' as retake to ':' to ');
   let msg=`${letter}${verb}${g.courseName.split(' · ')[0]}${pending?` (${pending} component${pending===1?'':'s'} still unscored)`:''}`;
-=======
-function applyExamGroupGrade(key){
-  const groups=groupExams();
-  const g=groups[key];
-  if(!g) return;
-  const avg=courseAveragePct(g.entries);
-  if(avg===null) return;
-  const letter=pctToGrade(avg,g.dept);
-  const arr=ensureSemDataArrayForDept(g.dept,g.semKey);
-  if(!arr[g.courseIndex]) arr[g.courseIndex]={grade:'',credits:g.credits,elective:false};
-  arr[g.courseIndex].grade=letter;
-  persistToProfile();
-
-  let msg=`${letter} applied to ${g.courseName.split(' · ')[0]}`;
->>>>>>> 7a9e9ed77c984f1d9e044c5cb07a69927b807f2d
   if(semHistory[g.semKey]){
     recomputeSemHistoryFromData(g.dept,g.semKey);
     persistToProfile();
@@ -715,17 +599,11 @@ function applyExamGroupGrade(key){
   showToast(msg,4500);
 }
 
-<<<<<<< HEAD
 // ── Add Exam modal (manual entry) ────────────────────────────
 function openAddExamModal(){
   if(!activeProfileId){ showToast('Load a profile first'); return; }
   let groupKey=null;
   if(exViewCourse&&getExamGroup(exViewCourse)) groupKey=exViewCourse;
-=======
-// ── Add Exam modal ───────────────────────────────────────────
-function openAddExamModal(){
-  if(!activeProfileId){ showToast('Load a profile first'); return; }
->>>>>>> 7a9e9ed77c984f1d9e044c5cb07a69927b807f2d
   let modal=document.getElementById('addExamModal');
   if(!modal){
     modal=document.createElement('div');
@@ -733,22 +611,11 @@ function openAddExamModal(){
     modal.className='modal-overlay';
     document.body.appendChild(modal);
   }
-<<<<<<< HEAD
-=======
-  const courseOpts=buildExamCourseOptions();
->>>>>>> 7a9e9ed77c984f1d9e044c5cb07a69927b807f2d
   const today=new Date().toISOString().slice(0,10);
   modal.innerHTML=`
     <div class="modal" style="max-width:380px;">
       <h2>Add Exam Result</h2>
-<<<<<<< HEAD
       <p>${groupKey?'Logging for the selected course.':'Custom result — type, score and optional weight.'}</p>
-=======
-      <p>Only required (credit-bearing) courses for this profile's department are listed.</p>
-      <select id="examCourseSel" class="ex-modal-select">
-        ${courseOpts.map((c,i)=>`<option value="${i}">${_gpaEiEsc(c.name)} — ${_gpaEiEsc(c.semLabel)}</option>`).join('')}
-      </select>
->>>>>>> 7a9e9ed77c984f1d9e044c5cb07a69927b807f2d
       <select id="examTypeSel" class="ex-modal-select">
         ${EXAM_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
       </select>
@@ -763,7 +630,6 @@ function openAddExamModal(){
       </div>
       <div style="display:flex;gap:8px;margin-top:4px;">
         <button class="modal-cancel" onclick="closeAddExamModal()">Cancel</button>
-<<<<<<< HEAD
         <button class="modal-confirm" onclick="confirmAddExam('${groupKey?_exJs(groupKey):''}')">Add</button>
       </div>
     </div>`;
@@ -773,29 +639,12 @@ function closeAddExamModal(){ document.getElementById('addExamModal')?.classList
 
 function confirmAddExam(groupKey){
   const modal=document.getElementById('addExamModal');
-=======
-        <button class="modal-confirm" onclick="confirmAddExam()">Add</button>
-      </div>
-    </div>`;
-  modal.dataset.courseOpts=JSON.stringify(courseOpts);
-  modal.classList.add('open');
-  if(!courseOpts.length) showToast('No credit-bearing courses found for this department');
-}
-function closeAddExamModal(){ document.getElementById('addExamModal')?.classList.remove('open'); }
-
-function confirmAddExam(){
-  const modal=document.getElementById('addExamModal');
-  const courseOpts=JSON.parse(modal.dataset.courseOpts||'[]');
-  const idx=parseInt(document.getElementById('examCourseSel').value);
-  const course=courseOpts[idx];
->>>>>>> 7a9e9ed77c984f1d9e044c5cb07a69927b807f2d
   const type=document.getElementById('examTypeSel').value;
   const score=parseFloat(document.getElementById('examScoreInput').value);
   const maxScore=parseFloat(document.getElementById('examMaxInput').value)||100;
   const weight=parseFloat(document.getElementById('examWeightInput').value)||0;
   const date=document.getElementById('examDateInput').value||new Date().toISOString().slice(0,10);
 
-<<<<<<< HEAD
   let course=null;
   if(groupKey){
     const g=getExamGroup(groupKey);
@@ -807,9 +656,6 @@ function confirmAddExam(){
     if(!course){ showToast('No credit courses in this semester'); return; }
     course={dept:activeDept,semKey:exSelectedSem,name:course.name,courseIndex:course.courseIndex,credits:course.credits};
   }
-=======
-  if(!course){ showToast('Pick a course'); return; }
->>>>>>> 7a9e9ed77c984f1d9e044c5cb07a69927b807f2d
   if(isNaN(score) || score<0){ showToast('Enter a valid score'); return; }
   if(maxScore<=0){ showToast('Max score must be greater than 0'); return; }
 
